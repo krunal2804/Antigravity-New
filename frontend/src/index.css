@@ -534,6 +534,45 @@ tr:last-child td {
 }
 
 /* =========================================
+   PROJECT FORM COMPONENTS
+   ========================================= */
+.project-form-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  padding: 20px;
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  position: relative;
+  transition: border-color 0.2s;
+}
+
+.project-form-card:hover {
+  border-color: var(--border-hover);
+}
+
+.add-project-btn {
+  width: 100%;
+  padding: 16px;
+  background: transparent;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.add-project-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(37, 99, 235, 0.05); /* very light primary tint */
+}
+
+/* =========================================
    BREADCRUMB COMPONENT
    ========================================= */
 .breadcrumb-wrapper {

@@ -75,17 +75,85 @@ router.get('/:id', authenticate, async (req, res) => {
 // POST /api/assignments
 router.post('/', authenticate, authorize('assignments', 'can_create'), async (req, res) => {
     try {
-        const { organization_id, name, location, description, start_date, end_date } = req.body;
+        const { organization_id, name, location, description, start_date, end_date, projects } = req.body;
         if (!organization_id || !name) return res.status(400).json({ error: 'organization_id and name are required.' });
 
-        const [assignment] = await db('assignments')
-            .insert({ organization_id, name, location, description, start_date, end_date })
-            .returning('*');
+        const assignment = await db.transaction(async (trx) => {
+            const [newAssignment] = await trx('assignments')
+                .insert({ organization_id, name, location, description, start_date, end_date })
+                .returning('*');
+
+            if (projects && Array.isArray(projects) && projects.length > 0) {
+                for (const proj of projects) {
+                    if (!proj.name || !proj.service_id) continue; // Skip invalid projects
+                    
+                    const [newProject] = await trx('projects')
+                        .insert({
+                            assignment_id: newAssignment.id,
+                            service_id: proj.service_id,
+                            name: proj.name,
+                            description: proj.description || null,
+                            project_code: proj.project_code || null,
+                            start_date: proj.start_date || null,
+                            end_date: proj.end_date || null,
+                            created_by: req.user.id
+                        })
+                        .returning('*');
+
+                    // Auto-populate tasks from service_tasks template
+                    const serviceTasks = await trx('service_tasks')
+                        .where({ service_id: proj.service_id, is_active: true })
+                        .orderBy('sequence_order');
+
+                    if (serviceTasks.length > 0) {
+                        const projectTasks = serviceTasks.map((st) => {
+                            let taskStart = null;
+                            let taskDue = null;
+                            if (proj.start_date && st.default_duration_days) {
+                                taskStart = proj.start_date;
+                                const due = new Date(proj.start_date);
+                                due.setDate(due.getDate() + st.default_duration_days);
+                                taskDue = due.toISOString().split('T')[0];
+                            }
+                            return {
+                                project_id: newProject.id,
+                                service_task_id: st.id,
+                                name: st.name,
+                                description: st.description,
+                                sequence_order: st.sequence_order,
+                                is_mandatory: st.is_mandatory,
+                                start_date: taskStart,
+                                due_date: taskDue,
+                            };
+                        });
+                        await trx('project_tasks').insert(projectTasks);
+                    }
+
+                    // Add creator as primary project member
+                    await trx('project_members').insert({
+                        project_id: newProject.id,
+                        user_id: req.user.id,
+                        role_id: req.user.role_id,
+                        is_primary: true,
+                    });
+
+                    // Create timeline event
+                    await trx('project_timeline_events').insert({
+                        project_id: newProject.id,
+                        event_type: 'milestone',
+                        title: 'Project Created',
+                        description: `Project "${proj.name}" was created during assignment creation.`,
+                        created_by: req.user.id,
+                    });
+                }
+            }
+            return newAssignment;
+        });
 
         res.status(201).json(assignment);
     } catch (err) {
         console.error('Create assignment error:', err);
-        res.status(500).json({ error: 'Failed to create assignment.' });
+        res.status(500).json({ error: 'Failed to create assignment and projects.' });
     }
 });
 

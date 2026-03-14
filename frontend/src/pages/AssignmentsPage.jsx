@@ -8,24 +8,63 @@ export default function AssignmentsPage() {
     const navigate = useNavigate();
     const [assignments, setAssignments] = useState([]);
     const [orgs, setOrgs] = useState([]);
+    const [services, setServices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editItem, setEditItem] = useState(null);
-    const [form, setForm] = useState({ organization_id: '', name: '', location: '', description: '', start_date: '', end_date: '' });
+    const [form, setForm] = useState({ 
+        organization_id: '', name: '', location: '', description: '', start_date: '', end_date: '',
+        projects: [] 
+    });
 
     const fetchData = async () => {
         try {
-            const [aRes, oRes] = await Promise.all([api.get('/assignments'), api.get('/organizations')]);
+            const [aRes, oRes, sRes] = await Promise.all([
+                api.get('/assignments'), 
+                api.get('/organizations'),
+                api.get('/services')
+            ]);
             setAssignments(aRes.data);
             setOrgs(oRes.data);
+            setServices(sRes.data);
         } catch (e) { console.error(e); }
         setLoading(false);
     };
 
     useEffect(() => { fetchData(); }, []);
 
-    const openAdd = () => { setEditItem(null); setForm({ organization_id: orgs[0]?.id || '', name: '', location: '', description: '', start_date: '', end_date: '' }); setShowModal(true); };
-    const openEdit = (e, a) => { e.stopPropagation(); setEditItem(a); setForm({ organization_id: a.organization_id, name: a.name, location: a.location || '', description: a.description || '', start_date: a.start_date?.split('T')[0] || '', end_date: a.end_date?.split('T')[0] || '' }); setShowModal(true); };
+    const getEmptyProject = () => ({ name: '', service_id: '', description: '', start_date: '', end_date: '', project_code: '' });
+
+    const openAdd = () => { 
+        setEditItem(null); 
+        setForm({ 
+            organization_id: orgs[0]?.id || '', name: '', location: '', description: '', start_date: '', end_date: '',
+            projects: [getEmptyProject()]
+        }); 
+        setShowModal(true); 
+    };
+
+    const openEdit = (e, a) => { 
+        e.stopPropagation(); 
+        setEditItem(a); 
+        setForm({ 
+            organization_id: a.organization_id, name: a.name, location: a.location || '', description: a.description || '', start_date: a.start_date?.split('T')[0] || '', end_date: a.end_date?.split('T')[0] || '',
+            projects: [] // Hide project form on edit
+        }); 
+        setShowModal(true); 
+    };
+
+    const handleProjectChange = (index, field, value) => {
+        const newProjects = [...form.projects];
+        newProjects[index][field] = value;
+        setForm({ ...form, projects: newProjects });
+    };
+
+    const addProjectField = () => setForm({ ...form, projects: [...form.projects, getEmptyProject()] });
+    const removeProjectField = (index) => {
+        const newProjects = form.projects.filter((_, i) => i !== index);
+        setForm({ ...form, projects: newProjects });
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -163,6 +202,50 @@ export default function AssignmentsPage() {
                                         <input type="date" className="form-control" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
                                     </div>
                                 </div>
+
+                                {!editItem && (
+                                    <div style={{ marginTop: '32px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
+                                        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Projects</h3>
+                                        {form.projects.map((proj, idx) => (
+                                            <div key={idx} className="project-form-card">
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Project {idx + 1}</h4>
+                                                    {form.projects.length > 1 && (
+                                                        <button type="button" onClick={() => removeProjectField(idx)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Remove Project">
+                                                            <HiOutlineTrash size={18} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="form-row">
+                                                    <div className="form-group">
+                                                        <label>Project Name *</label>
+                                                        <input className="form-control" value={proj.name} onChange={(e) => handleProjectChange(idx, 'name', e.target.value)} required placeholder="e.g. Implementation Phase" />
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label>Service Type *</label>
+                                                        <select className="form-control" value={proj.service_id} onChange={(e) => handleProjectChange(idx, 'service_id', e.target.value)} required>
+                                                            <option value="">Select Service</option>
+                                                            {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div className="form-row">
+                                                    <div className="form-group">
+                                                        <label>Start Date</label>
+                                                        <input type="date" className="form-control" value={proj.start_date || ''} onChange={(e) => handleProjectChange(idx, 'start_date', e.target.value)} />
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label>End Date</label>
+                                                        <input type="date" className="form-control" value={proj.end_date || ''} onChange={(e) => handleProjectChange(idx, 'end_date', e.target.value)} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <button type="button" className="add-project-btn" onClick={addProjectField}>
+                                            <HiOutlinePlus size={20} /> Add Another Project
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             <div className="modal-footer">
                                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>

@@ -87,7 +87,6 @@ export default function ProjectsPage() {
             <div className="table-container">
                 <div className="table-header">
                     <h2>All Projects ({projects.length})</h2>
-                    <button className="btn btn-primary btn-sm" onClick={openAdd}><HiOutlinePlus /> New Project</button>
                 </div>
 
                 {projects.length > 0 ? (
@@ -150,26 +149,18 @@ export default function ProjectsPage() {
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2>{editItem ? 'Edit Project' : 'Create New Project'}</h2>
+                            <h2>Edit Project "{form.name}"</h2>
                             <button className="btn-icon" onClick={() => setShowModal(false)}><HiOutlineX /></button>
                         </div>
                         <form onSubmit={handleSubmit}>
                             <div className="modal-body">
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label>Assignment *</label>
-                                        <select className="form-control" value={form.assignment_id} onChange={(e) => setForm({ ...form, assignment_id: e.target.value })} required>
-                                            <option value="">Select Assignment</option>
-                                            {assignments.map((a) => <option key={a.id} value={a.id}>{a.organization_name} / {a.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Service Type *</label>
-                                        <select className="form-control" value={form.service_id} onChange={(e) => setForm({ ...form, service_id: e.target.value })} required>
-                                            <option value="">Select Service</option>
-                                            {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                        </select>
-                                    </div>
+                                <div className="form-group">
+                                    <label>Assignment</label>
+                                    <input className="form-control" value={projects.find(p => p.id === editItem?.id)?.assignment_name || ''} disabled style={{ background: 'var(--bg-primary)' }} />
+                                </div>
+                                <div className="form-group">
+                                    <label>Service Type</label>
+                                    <input className="form-control" value={projects.find(p => p.id === editItem?.id)?.service_name || ''} disabled style={{ background: 'var(--bg-primary)' }} />
                                 </div>
                                 <div className="form-group">
                                     <label>Project Name *</label>
@@ -192,7 +183,7 @@ export default function ProjectsPage() {
                             </div>
                             <div className="modal-footer">
                                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">{editItem ? 'Save Changes' : 'Create Project'}</button>
+                                <button type="submit" className="btn btn-primary">Save Changes</button>
                             </div>
                         </form>
                     </div>
