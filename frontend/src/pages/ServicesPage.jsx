@@ -5,6 +5,18 @@ import {
     HiOutlineDocumentAdd, HiOutlineX, HiOutlinePaperClip
 } from 'react-icons/hi';
 
+function toRoman(num) {
+    if (num === 0) return '0';
+    const roman = { M: 1000, CM: 900, D: 500, CD: 400, C: 100, XC: 90, L: 50, XL: 40, X: 10, IX: 9, V: 5, IV: 4, I: 1 };
+    let str = '';
+    for (let i of Object.keys(roman)) {
+        let q = Math.floor(num / roman[i]);
+        num -= q * roman[i];
+        str += i.repeat(q);
+    }
+    return str;
+}
+
 export default function ServicesPage() {
     const [services, setServices] = useState([]);
     const [selectedServiceId, setSelectedServiceId] = useState(null);
@@ -71,7 +83,6 @@ export default function ServicesPage() {
             
             // Validate Empty Fields
             if (type === 'service' && (!form.name.trim() || !form.code.trim())) return alert("Name and Code are required.");
-            if (type === 'step' && !form.name.trim()) return alert("Step name is required.");
             if (type === 'task' && !form.name.trim()) return alert("Task name is required.");
             if (type === 'doc' && !form.document_id) return alert("Please select a document.");
             if (type === 'doc_create' && (!form.name.trim() || !form.file_url.trim())) return alert("Name and File URL are required.");
@@ -164,7 +175,7 @@ export default function ServicesPage() {
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleDelete('service', serviceDetails.id)}><HiOutlineTrash /> Delete Service</button>
                                 <button className="btn btn-primary btn-sm" onClick={() => openModal('step', serviceDetails.id)}>
-                                    <HiOutlinePlus /> Add Phase / Step
+                                    <HiOutlinePlus /> Add Step
                                 </button>
                             </div>
                         </div>
@@ -175,7 +186,7 @@ export default function ServicesPage() {
                                 {serviceDetails.steps.map((step, idx) => (
                                     <div key={step.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '20px', background: 'var(--bg-secondary)' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Step {idx + 1}: {step.name}</h3>
+                                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Step {toRoman(idx)} {step.name ? `- ${step.name}` : ''}</h3>
                                             <div style={{ display: 'flex', gap: '8px' }}>
                                                 <button className="btn-icon" onClick={() => openModal('task', step.id)} title="Add Task"><HiOutlinePlus /></button>
                                                 <button className="btn-icon" onClick={() => handleDelete('step', step.id)} title="Delete Step" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
@@ -243,7 +254,7 @@ export default function ServicesPage() {
                         <div className="modal-header">
                             <h2>
                                 {modalConfig.type === 'service' && "Create Service"}
-                                {modalConfig.type === 'step' && "Add Step/Phase"}
+                                {modalConfig.type === 'step' && "Add Step"}
                                 {modalConfig.type === 'task' && "Add Task"}
                                 {modalConfig.type === 'doc' && "Attach Document"}
                                 {modalConfig.type === 'doc_create' && "Upload New Document"}
@@ -261,7 +272,7 @@ export default function ServicesPage() {
                                 )}
                                 {modalConfig.type === 'step' && (
                                     <>
-                                        <div className="form-group"><label>Step / Phase Name *</label><input required className="form-control" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Pre-Audit" /></div>
+                                        <div className="form-group"><label>Step Name (Optional)</label><input className="form-control" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Pre-Audit (Optional)" /></div>
                                         <div className="form-group"><label>Description</label><input className="form-control" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
                                         <div className="form-group"><label>Sequence Order</label><input type="number" className="form-control" value={form.sequence_order} onChange={e => setForm({...form, sequence_order: parseInt(e.target.value)})} /></div>
                                     </>

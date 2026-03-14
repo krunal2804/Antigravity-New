@@ -91,7 +91,6 @@ router.delete('/:id', authenticate, async (req, res) => {
 router.post('/:id/steps', authenticate, async (req, res) => {
     try {
         const { name, description, sequence_order } = req.body;
-        if (!name) return res.status(400).json({ error: 'Step name is required.' });
 
         const [step] = await db('service_steps').insert({
             service_id: req.params.id,
@@ -109,7 +108,6 @@ router.post('/:id/steps', authenticate, async (req, res) => {
 router.put('/steps/:stepId', authenticate, async (req, res) => {
     try {
         const { name, description, sequence_order } = req.body;
-        if (!name) return res.status(400).json({ error: 'Step name is required.' });
 
         const [step] = await db('service_steps').where({ id: req.params.stepId }).update({
             name, description, sequence_order, updated_at: db.fn.now()
