@@ -13,6 +13,7 @@ import UsersPage from './pages/UsersPage';
 import MyProjectsPage from './pages/MyProjectsPage';
 import MyTasksPage from './pages/MyTasksPage';
 import SettingsPage from './pages/SettingsPage';
+import ServicesPage from './pages/ServicesPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -42,6 +43,7 @@ function AppRoutes() {
         <Route index element={<DashboardPage />} />
         {/* Old /organizations path redirects to /clients */}
         <Route path="organizations" element={<Navigate to="/clients" replace />} />
+        <Route path="services" element={<RoleRoute roles={['Director', 'Manager']}><ServicesPage /></RoleRoute>} />
         <Route path="clients" element={<RoleRoute roles={['Director', 'Manager']}><OrganizationsPage /></RoleRoute>} />
         <Route path="clients/:id" element={<RoleRoute roles={['Director', 'Manager']}><ClientDetailPage /></RoleRoute>} />
         <Route path="assignments" element={<RoleRoute roles={['Director', 'Manager']}><AssignmentsPage /></RoleRoute>} />

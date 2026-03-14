@@ -110,32 +110,45 @@ router.post('/', authenticate, authorize('projects', 'can_create'), async (req, 
             .insert({ assignment_id, service_id, name, description, project_code, start_date, end_date, created_by: req.user.id })
             .returning('*');
 
-        // Auto-populate tasks from service_tasks template
-        const serviceTasks = await db('service_tasks').where({ service_id, is_active: true }).orderBy('sequence_order');
+        // Auto-populate tasks from service_steps template
+        const serviceSteps = await db('service_steps')
+            .where({ service_id, is_active: true })
+            .orderBy('sequence_order');
 
-        if (serviceTasks.length > 0) {
-            const projectTasks = serviceTasks.map((st) => {
-                let taskStart = null;
-                let taskDue = null;
-                if (start_date && st.default_duration_days) {
-                    taskStart = start_date;
-                    const due = new Date(start_date);
-                    due.setDate(due.getDate() + st.default_duration_days);
-                    taskDue = due.toISOString().split('T')[0];
-                }
-                return {
-                    project_id: project.id,
-                    service_task_id: st.id,
-                    name: st.name,
-                    description: st.description,
-                    sequence_order: st.sequence_order,
-                    is_mandatory: st.is_mandatory,
-                    start_date: taskStart,
-                    due_date: taskDue,
-                };
-            });
+        if (serviceSteps.length > 0) {
+            const stepIds = serviceSteps.map(s => s.id);
+            const serviceTasks = await db('service_tasks')
+                .whereIn('service_step_id', stepIds)
+                .where({ is_active: true })
+                .orderBy('sequence_order');
 
-            await db('project_tasks').insert(projectTasks);
+            if (serviceTasks.length > 0) {
+                const projectTasks = serviceTasks.map((st) => {
+                    const stepName = serviceSteps.find(s => s.id === st.service_step_id)?.name || null;
+
+                    let taskStart = null;
+                    let taskDue = null;
+                    if (start_date && st.default_duration_days) {
+                        taskStart = start_date;
+                        const due = new Date(start_date);
+                        due.setDate(due.getDate() + st.default_duration_days);
+                        taskDue = due.toISOString().split('T')[0];
+                    }
+                    return {
+                        project_id: project.id,
+                        service_task_id: st.id,
+                        step_name: stepName,
+                        name: st.name,
+                        description: st.description,
+                        sequence_order: st.sequence_order,
+                        is_mandatory: st.is_mandatory,
+                        start_date: taskStart,
+                        due_date: taskDue,
+                    };
+                });
+
+                await db('project_tasks').insert(projectTasks);
+            }
         }
 
         // Add creator as project member

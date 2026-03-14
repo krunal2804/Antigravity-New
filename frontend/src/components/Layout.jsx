@@ -12,10 +12,12 @@ import {
     HiOutlineUsers,
     HiOutlineClipboardCheck,
     HiOutlineCog,
+    HiOutlineTemplate,
 } from 'react-icons/hi';
 
 const allNavItems = [
     { path: '/', label: 'Dashboard', icon: HiOutlineViewGrid, roles: ['Director', 'Manager', 'CEM', 'Senior Consultant', 'Consultant'] },
+    { path: '/services', label: 'Services Builder', icon: HiOutlineTemplate, roles: ['Director', 'Manager'] },
     { path: '/clients', label: 'Clients', icon: HiOutlineOfficeBuilding, roles: ['Director', 'Manager'] },
     { path: '/assignments', label: 'Assignments', icon: HiOutlineCollection, roles: ['Director', 'Manager'] },
     { path: '/projects', label: 'Projects', icon: HiOutlineClipboardList, roles: ['Director', 'Manager'] },
@@ -27,6 +29,7 @@ const allNavItems = [
 
 const pageTitles = {
     '/': 'Dashboard',
+    '/services': 'Services Builder',
     '/clients': 'Clients',
     '/assignments': 'Assignments',
     '/projects': 'Projects',
