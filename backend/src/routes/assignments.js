@@ -46,7 +46,27 @@ router.get('/:id', authenticate, async (req, res) => {
             .select('projects.*', 'services.name as service_name')
             .where({ assignment_id: assignment.id, 'projects.is_active': true });
 
-        res.json({ ...assignment, projects });
+        // Enrich with task stats for progress
+        const enrichedProjects = await Promise.all(
+            projects.map(async (p) => {
+                const taskStats = await db('project_tasks')
+                    .where({ project_id: p.id })
+                    .select(
+                        db.raw('COUNT(*) as total'),
+                        db.raw("COUNT(*) FILTER (WHERE status = 'completed') as completed"),
+                        db.raw("COUNT(*) FILTER (WHERE status = 'overdue' OR (due_date < NOW() AND status NOT IN ('completed', 'skipped'))) as overdue")
+                    )
+                    .first();
+                return {
+                    ...p,
+                    task_total: parseInt(taskStats.total),
+                    task_completed: parseInt(taskStats.completed),
+                    task_overdue: parseInt(taskStats.overdue),
+                };
+            })
+        );
+
+        res.json({ ...assignment, projects: enrichedProjects });
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch assignment.' });
     }
@@ -84,12 +104,19 @@ router.put('/:id', authenticate, authorize('assignments', 'can_edit'), async (re
     }
 });
 
-// DELETE /api/assignments/:id (soft delete)
+// DELETE /api/assignments/:id (soft delete with cascade)
 router.delete('/:id', authenticate, authorize('assignments', 'can_delete'), async (req, res) => {
     try {
-        await db('assignments').where({ id: req.params.id }).update({ is_active: false });
-        res.json({ message: 'Assignment deactivated.' });
+        await db.transaction(async (trx) => {
+            // Deactivate assignment
+            await trx('assignments').where({ id: req.params.id }).update({ is_active: false });
+
+            // Deactivate projects
+            await trx('projects').where({ assignment_id: req.params.id }).update({ is_active: false });
+        });
+        res.json({ message: 'Assignment and related projects deactivated.' });
     } catch (err) {
+        console.error('Cascading delete assignment error:', err);
         res.status(500).json({ error: 'Failed to delete assignment.' });
     }
 });

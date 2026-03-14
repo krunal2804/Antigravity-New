@@ -6,27 +6,34 @@ import {
     HiOutlineOfficeBuilding,
     HiOutlineCollection,
     HiOutlineClipboardList,
-    HiOutlineCog,
     HiOutlineLogout,
     HiOutlineMenu,
     HiOutlineX,
     HiOutlineUsers,
+    HiOutlineClipboardCheck,
+    HiOutlineCog,
 } from 'react-icons/hi';
 
-const navItems = [
-    { path: '/', label: 'Dashboard', icon: HiOutlineViewGrid },
-    { path: '/organizations', label: 'Organizations', icon: HiOutlineOfficeBuilding },
-    { path: '/assignments', label: 'Assignments', icon: HiOutlineCollection },
-    { path: '/projects', label: 'Projects', icon: HiOutlineClipboardList },
-    { path: '/users', label: 'Team', icon: HiOutlineUsers },
+const allNavItems = [
+    { path: '/', label: 'Dashboard', icon: HiOutlineViewGrid, roles: ['Director', 'Manager', 'CEM', 'Senior Consultant', 'Consultant'] },
+    { path: '/clients', label: 'Clients', icon: HiOutlineOfficeBuilding, roles: ['Director', 'Manager'] },
+    { path: '/assignments', label: 'Assignments', icon: HiOutlineCollection, roles: ['Director', 'Manager'] },
+    { path: '/projects', label: 'Projects', icon: HiOutlineClipboardList, roles: ['Director', 'Manager'] },
+    { path: '/my-projects', label: 'My Projects', icon: HiOutlineClipboardList, roles: ['Senior Consultant'] },
+    { path: '/my-tasks', label: 'My Tasks', icon: HiOutlineClipboardCheck, roles: ['Consultant'] },
+    { path: '/users', label: 'Users', icon: HiOutlineUsers, roles: ['Director', 'Manager'] },
+    { path: '/settings', label: 'Settings', icon: HiOutlineCog, roles: ['Director', 'Manager', 'CEM', 'Senior Consultant', 'Consultant'] },
 ];
 
 const pageTitles = {
     '/': 'Dashboard',
-    '/organizations': 'Organizations',
+    '/clients': 'Clients',
     '/assignments': 'Assignments',
     '/projects': 'Projects',
-    '/users': 'Team',
+    '/my-projects': 'My Projects',
+    '/my-tasks': 'My Tasks',
+    '/users': 'Users',
+    '/settings': 'Settings',
 };
 
 export default function Layout() {
@@ -34,11 +41,16 @@ export default function Layout() {
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    const roleName = user?.role_name || '';
+    const navItems = allNavItems.filter((item) => item.roles.includes(roleName));
+
     const getPageTitle = () => {
         for (const [path, title] of Object.entries(pageTitles)) {
             if (location.pathname === path) return title;
         }
         if (location.pathname.startsWith('/projects/')) return 'Project Details';
+        if (location.pathname.startsWith('/assignments/')) return 'Assignment Details';
+        if (location.pathname.startsWith('/clients/')) return 'Client Details';
         return 'Dashboard';
     };
 

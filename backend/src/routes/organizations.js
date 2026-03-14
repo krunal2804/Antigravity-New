@@ -38,7 +38,39 @@ router.get('/:id', authenticate, async (req, res) => {
         if (!org) return res.status(404).json({ error: 'Organization not found.' });
 
         const assignments = await db('assignments').where({ organization_id: org.id, is_active: true });
-        res.json({ ...org, assignments });
+
+        // Enrich each assignment with progress data from its projects' tasks
+        const enriched = await Promise.all(
+            assignments.map(async (a) => {
+                const projects = await db('projects').where({ assignment_id: a.id, is_active: true });
+                const projectIds = projects.map((p) => p.id);
+
+                let totalTasks = 0;
+                let completedTasks = 0;
+                if (projectIds.length > 0) {
+                    const stats = await db('project_tasks')
+                        .whereIn('project_id', projectIds)
+                        .select(
+                            db.raw('COUNT(*) as total'),
+                            db.raw("COUNT(*) FILTER (WHERE status = 'completed') as completed")
+                        )
+                        .first();
+                    totalTasks = parseInt(stats.total);
+                    completedTasks = parseInt(stats.completed);
+                }
+
+                const progress = totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : 0;
+                return {
+                    ...a,
+                    project_count: projects.length,
+                    total_tasks: totalTasks,
+                    completed_tasks: completedTasks,
+                    progress_percentage: parseFloat(progress),
+                };
+            })
+        );
+
+        res.json({ ...org, assignments: enriched });
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch organization.' });
     }
@@ -73,12 +105,26 @@ router.put('/:id', authenticate, authorize('organizations', 'can_edit'), async (
     }
 });
 
-// DELETE /api/organizations/:id (soft delete)
+// DELETE /api/organizations/:id (soft delete with cascade)
 router.delete('/:id', authenticate, authorize('organizations', 'can_delete'), async (req, res) => {
     try {
-        await db('organizations').where({ id: req.params.id }).update({ is_active: false });
-        res.json({ message: 'Organization deactivated.' });
+        await db.transaction(async (trx) => {
+            // Deactivate organization
+            await trx('organizations').where({ id: req.params.id }).update({ is_active: false });
+
+            // Deactivate assignments
+            const assignments = await trx('assignments').where({ organization_id: req.params.id }).select('id');
+            if (assignments.length > 0) {
+                const assignmentIds = assignments.map(a => a.id);
+                await trx('assignments').whereIn('id', assignmentIds).update({ is_active: false });
+
+                // Deactivate projects under those assignments
+                await trx('projects').whereIn('assignment_id', assignmentIds).update({ is_active: false });
+            }
+        });
+        res.json({ message: 'Organization and related assignments/projects deactivated.' });
     } catch (err) {
+        console.error('Cascading delete org error:', err);
         res.status(500).json({ error: 'Failed to delete organization.' });
     }
 });

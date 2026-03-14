@@ -71,4 +71,27 @@ router.put('/:id', authenticate, authorize('tasks', 'can_edit'), async (req, res
     }
 });
 
+// GET /api/tasks/my — Get all tasks assigned to the current user
+router.get('/my', authenticate, async (req, res) => {
+    try {
+        const tasks = await db('project_tasks')
+            .join('projects', 'project_tasks.project_id', 'projects.id')
+            .join('assignments', 'projects.assignment_id', 'assignments.id')
+            .join('organizations', 'assignments.organization_id', 'organizations.id')
+            .select(
+                'project_tasks.*',
+                'projects.name as project_name',
+                'assignments.name as assignment_name',
+                'organizations.name as organization_name'
+            )
+            .where('project_tasks.assigned_to', req.user.id)
+            .orderBy('project_tasks.sequence_order');
+
+        res.json(tasks);
+    } catch (err) {
+        console.error('Fetch my tasks error:', err);
+        res.status(500).json({ error: 'Failed to fetch your tasks.' });
+    }
+});
+
 module.exports = router;

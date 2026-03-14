@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
+import { useAuth } from '../context/AuthContext';
 import {
     HiOutlineOfficeBuilding,
     HiOutlineCollection,
@@ -10,7 +11,51 @@ import {
     HiOutlineExclamationCircle,
 } from 'react-icons/hi';
 
-export default function DashboardPage() {
+function EmptyDashboard({ roleName }) {
+    return (
+        <div className="fade-in">
+            <div className="empty-state" style={{ paddingTop: '120px' }}>
+                <div className="icon">🚧</div>
+                <h3>Welcome, {roleName}!</h3>
+                <p>Your portal is coming soon. We're building features tailored for your role.</p>
+            </div>
+        </div>
+    );
+}
+
+function ConsultantDashboard({ user }) {
+    return (
+        <div className="fade-in">
+            <div className="card" style={{ marginBottom: '24px' }}>
+                <div className="card-header">
+                    <span className="card-title">Welcome back, {user.first_name}!</span>
+                    <span className="badge badge-info">{user.role_name}</span>
+                </div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                    Head over to <strong>My Tasks</strong> in the sidebar to view and complete your assigned tasks.
+                </p>
+            </div>
+        </div>
+    );
+}
+
+function SrConsultantDashboard({ user }) {
+    return (
+        <div className="fade-in">
+            <div className="card" style={{ marginBottom: '24px' }}>
+                <div className="card-header">
+                    <span className="card-title">Welcome back, {user.first_name}!</span>
+                    <span className="badge badge-purple">{user.role_name}</span>
+                </div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                    View your assigned projects under <strong>My Projects</strong> in the sidebar.
+                </p>
+            </div>
+        </div>
+    );
+}
+
+function FullDashboard() {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -43,7 +88,6 @@ export default function DashboardPage() {
 
     return (
         <div className="fade-in">
-            {/* Summary Stats */}
             <div className="stats-grid">
                 <div className="stat-card">
                     <div className="stat-icon purple"><HiOutlineOfficeBuilding /></div>
@@ -75,7 +119,6 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* Task Overview */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '28px' }}>
                 <div className="card">
                     <div className="card-header">
@@ -142,7 +185,6 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* Recent Projects */}
             <div className="table-container">
                 <div className="table-header">
                     <h2>Recent Projects</h2>
@@ -192,4 +234,16 @@ export default function DashboardPage() {
             </div>
         </div>
     );
+}
+
+export default function DashboardPage() {
+    const { user } = useAuth();
+    const roleName = user?.role_name || '';
+
+    if (roleName === 'CEM') return <EmptyDashboard roleName={roleName} />;
+    if (roleName === 'Consultant') return <ConsultantDashboard user={user} />;
+    if (roleName === 'Senior Consultant') return <SrConsultantDashboard user={user} />;
+
+    // Director & Manager get the full dashboard
+    return <FullDashboard />;
 }

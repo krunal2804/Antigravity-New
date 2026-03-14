@@ -90,4 +90,31 @@ router.get('/me', authenticate, async (req, res) => {
     }
 });
 
+// PUT /api/auth/password — Change own password
+router.put('/password', authenticate, async (req, res) => {
+    try {
+        const { current_password, new_password } = req.body;
+        if (!current_password || !new_password) {
+            return res.status(400).json({ error: 'Current password and new password are required.' });
+        }
+        if (new_password.length < 6) {
+            return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+        }
+
+        const user = await db('users').where({ id: req.user.id }).first();
+        const valid = await bcrypt.compare(current_password, user.password_hash);
+        if (!valid) {
+            return res.status(401).json({ error: 'Current password is incorrect.' });
+        }
+
+        const password_hash = await bcrypt.hash(new_password, 10);
+        await db('users').where({ id: req.user.id }).update({ password_hash, updated_at: db.fn.now() });
+
+        res.json({ message: 'Password updated successfully.' });
+    } catch (err) {
+        console.error('Change password error:', err);
+        res.status(500).json({ error: 'Failed to change password.' });
+    }
+});
+
 module.exports = router;

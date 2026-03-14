@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import api from '../api';
+import Breadcrumb from '../components/Breadcrumb';
 import {
     HiOutlineArrowLeft,
     HiOutlineCheckCircle,
@@ -11,6 +12,7 @@ import {
 
 export default function ProjectDetailPage() {
     const { id } = useParams();
+    const location = useLocation();
     const [project, setProject] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -52,13 +54,47 @@ export default function ProjectDetailPage() {
 
     const statusOptions = ['not_started', 'in_progress', 'completed', 'overdue', 'skipped'];
 
+    const fromPath = location.state?.from || '/clients';
+
+    const getBreadcrumbItems = () => {
+        if (fromPath === '/projects') {
+            return [
+                { label: 'Home', path: '/' },
+                { label: 'Projects', path: '/projects' },
+                { label: project.name, path: `/projects/${project.id}`, state: { from: '/projects' } }
+            ];
+        }
+        if (fromPath === '/assignments') {
+            return [
+                { label: 'Home', path: '/' },
+                { label: 'Assignments', path: '/assignments' },
+                { label: project.assignment_name, path: `/assignments/${project.assignment_id}`, state: { from: '/assignments' } },
+                { label: project.name, path: `/projects/${project.id}`, state: { from: '/assignments' } }
+            ];
+        }
+        if (fromPath === '/my-projects') {
+             return [
+                 { label: 'Home', path: '/' },
+                 { label: 'My Projects', path: '/my-projects' },
+                 { label: project.name, path: `/projects/${project.id}`, state: { from: '/my-projects' } }
+             ];
+        }
+        
+        // Default Client hierarchy
+        return [
+            { label: 'Home', path: '/' },
+            { label: 'Clients', path: '/clients' },
+            { label: project.organization_name, path: `/clients/${project.organization_id || ''}` },
+            { label: project.assignment_name, path: `/assignments/${project.assignment_id}`, state: { from: '/clients' } },
+            { label: project.name, path: `/projects/${project.id}`, state: { from: '/clients' } }
+        ];
+    };
+
     return (
         <div className="fade-in">
-            <div className="detail-header">
-                <div className="breadcrumb">
-                    <Link to="/projects"><HiOutlineArrowLeft style={{ verticalAlign: 'middle' }} /> Back to Projects</Link>
-                    {' / '}{project.organization_name}{' / '}{project.assignment_name}
-                </div>
+            <Breadcrumb items={getBreadcrumbItems()} />
+
+            <div className="detail-header" style={{ marginBottom: '24px' }}>
                 <h1 style={{ fontSize: '24px', fontWeight: 800, marginTop: '4px' }}>{project.name}</h1>
                 <div className="detail-meta">
                     <div className="meta-item"><strong>Service:</strong> <span className="badge badge-purple" style={{ marginLeft: '6px' }}>{project.service_name}</span></div>

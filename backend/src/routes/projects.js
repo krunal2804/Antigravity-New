@@ -16,6 +16,7 @@ router.get('/', authenticate, async (req, res) => {
                 'projects.*',
                 'assignments.name as assignment_name',
                 'organizations.name as organization_name',
+                'organizations.id as organization_id',
                 'services.name as service_name'
             )
             .where('projects.is_active', true);
@@ -63,6 +64,7 @@ router.get('/:id', authenticate, async (req, res) => {
                 'projects.*',
                 'assignments.name as assignment_name',
                 'organizations.name as organization_name',
+                'organizations.id as organization_id',
                 'services.name as service_name'
             )
             .where('projects.id', req.params.id)

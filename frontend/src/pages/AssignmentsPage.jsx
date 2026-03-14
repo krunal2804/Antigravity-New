@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { HiOutlinePlus, HiOutlinePencil, HiOutlineX, HiOutlineCollection } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlinePencil, HiOutlineX, HiOutlineCollection, HiOutlineTrash } from 'react-icons/hi';
+import Breadcrumb from '../components/Breadcrumb';
 
 export default function AssignmentsPage() {
+    const navigate = useNavigate();
     const [assignments, setAssignments] = useState([]);
     const [orgs, setOrgs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -22,7 +25,7 @@ export default function AssignmentsPage() {
     useEffect(() => { fetchData(); }, []);
 
     const openAdd = () => { setEditItem(null); setForm({ organization_id: orgs[0]?.id || '', name: '', location: '', description: '', start_date: '', end_date: '' }); setShowModal(true); };
-    const openEdit = (a) => { setEditItem(a); setForm({ organization_id: a.organization_id, name: a.name, location: a.location || '', description: a.description || '', start_date: a.start_date?.split('T')[0] || '', end_date: a.end_date?.split('T')[0] || '' }); setShowModal(true); };
+    const openEdit = (e, a) => { e.stopPropagation(); setEditItem(a); setForm({ organization_id: a.organization_id, name: a.name, location: a.location || '', description: a.description || '', start_date: a.start_date?.split('T')[0] || '', end_date: a.end_date?.split('T')[0] || '' }); setShowModal(true); };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -39,6 +42,29 @@ export default function AssignmentsPage() {
         }
     };
 
+    const handleDelete = async (e, a) => {
+        e.stopPropagation();
+        try {
+            // Check for dependent projects first to show explicitly in the prompt
+            const pRes = await api.get(`/projects?assignment_id=${a.id}`);
+            const childProjects = pRes.data;
+            
+            let message = `Are you sure you want to delete assignment "${a.name}"?`;
+            if (childProjects.length > 0) {
+                message += `\n\nThis will also delete the following ${childProjects.length} project(s):\n`;
+                childProjects.slice(0, 5).forEach(p => message += `- ${p.name}\n`);
+                if (childProjects.length > 5) message += `- ...and ${childProjects.length - 5} more\n`;
+            }
+
+            if (!window.confirm(message)) return;
+
+            await api.delete(`/assignments/${a.id}`);
+            fetchData();
+        } catch (err) {
+            alert(err.response?.data?.error || 'Failed to delete assignment.');
+        }
+    };
+
     const getStatusBadge = (s) => {
         const m = { active: 'badge-success', on_hold: 'badge-warning', completed: 'badge-info', cancelled: 'badge-danger' };
         return m[s] || 'badge-default';
@@ -48,6 +74,10 @@ export default function AssignmentsPage() {
 
     return (
         <div className="fade-in">
+            <Breadcrumb items={[
+                { label: 'Home', path: '/' },
+                { label: 'Assignments', path: '/assignments' }
+            ]} />
             <div className="table-container">
                 <div className="table-header">
                     <h2>All Assignments ({assignments.length})</h2>
@@ -68,14 +98,17 @@ export default function AssignmentsPage() {
                         </thead>
                         <tbody>
                             {assignments.map((a) => (
-                                <tr key={a.id}>
+                                <tr key={a.id} onClick={() => navigate(`/assignments/${a.id}`, { state: { from: '/assignments' } })} style={{ cursor: 'pointer' }}>
                                     <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</td>
                                     <td>{a.organization_name}</td>
                                     <td>{a.location || '—'}</td>
                                     <td><span className={`badge ${getStatusBadge(a.status)}`}>{a.status}</span></td>
                                     <td><span className="badge badge-purple">{a.project_count}</span></td>
                                     <td>
-                                        <button className="btn-icon" onClick={() => openEdit(a)} title="Edit"><HiOutlinePencil /></button>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button className="btn-icon" onClick={(e) => openEdit(e, a)} title="Edit"><HiOutlinePencil /></button>
+                                            <button className="btn-icon" onClick={(e) => handleDelete(e, a)} title="Delete" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

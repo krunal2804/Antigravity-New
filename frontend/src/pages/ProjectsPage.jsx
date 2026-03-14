@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { HiOutlinePlus, HiOutlineX, HiOutlineClipboardList, HiOutlineEye } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlineX, HiOutlineClipboardList, HiOutlineEye, HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi';
+import Breadcrumb from '../components/Breadcrumb';
 
 export default function ProjectsPage() {
     const navigate = useNavigate();
@@ -10,6 +11,7 @@ export default function ProjectsPage() {
     const [services, setServices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [editItem, setEditItem] = useState(null);
     const [form, setForm] = useState({ assignment_id: '', service_id: '', name: '', description: '', start_date: '', end_date: '' });
 
     const fetchData = async () => {
@@ -25,18 +27,41 @@ export default function ProjectsPage() {
     useEffect(() => { fetchData(); }, []);
 
     const openAdd = () => {
+        setEditItem(null);
         setForm({ assignment_id: assignments[0]?.id || '', service_id: services[0]?.id || '', name: '', description: '', start_date: '', end_date: '' });
+        setShowModal(true);
+    };
+
+    const openEdit = (e, p) => {
+        e.stopPropagation();
+        setEditItem(p);
+        setForm({ assignment_id: p.assignment_id, service_id: p.service_id, name: p.name, description: p.description || '', start_date: p.start_date?.split('T')[0] || '', end_date: p.end_date?.split('T')[0] || '' });
         setShowModal(true);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await api.post('/projects', form);
+            if (editItem) {
+                await api.put(`/projects/${editItem.id}`, form);
+            } else {
+                await api.post('/projects', form);
+            }
             setShowModal(false);
             fetchData();
         } catch (err) {
-            alert(err.response?.data?.error || 'Failed to create project.');
+            alert(err.response?.data?.error || 'Failed to save project.');
+        }
+    };
+
+    const handleDelete = async (e, p) => {
+        e.stopPropagation();
+        if (!window.confirm(`Are you sure you want to delete project "${p.name}"?`)) return;
+        try {
+            await api.delete(`/projects/${p.id}`);
+            fetchData();
+        } catch (err) {
+            alert(err.response?.data?.error || 'Failed to delete project.');
         }
     };
 
@@ -55,6 +80,10 @@ export default function ProjectsPage() {
 
     return (
         <div className="fade-in">
+            <Breadcrumb items={[
+                { label: 'Home', path: '/' },
+                { label: 'Projects', path: '/projects' }
+            ]} />
             <div className="table-container">
                 <div className="table-header">
                     <h2>All Projects ({projects.length})</h2>
@@ -77,7 +106,7 @@ export default function ProjectsPage() {
                         </thead>
                         <tbody>
                             {projects.map((p) => (
-                                <tr key={p.id}>
+                                <tr key={p.id} onClick={() => navigate(`/projects/${p.id}`, { state: { from: '/projects' } })} style={{ cursor: 'pointer' }}>
                                     <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{p.name}</td>
                                     <td>{p.organization_name}</td>
                                     <td>{p.assignment_name}</td>
@@ -99,7 +128,10 @@ export default function ProjectsPage() {
                                         </span>
                                     </td>
                                     <td>
-                                        <button className="btn-icon" onClick={() => navigate(`/projects/${p.id}`)} title="View Details"><HiOutlineEye /></button>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button className="btn-icon" onClick={(e) => openEdit(e, p)} title="Edit Project"><HiOutlinePencil /></button>
+                                            <button className="btn-icon" onClick={(e) => handleDelete(e, p)} title="Delete Project" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -118,7 +150,7 @@ export default function ProjectsPage() {
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2>Create New Project</h2>
+                            <h2>{editItem ? 'Edit Project' : 'Create New Project'}</h2>
                             <button className="btn-icon" onClick={() => setShowModal(false)}><HiOutlineX /></button>
                         </div>
                         <form onSubmit={handleSubmit}>
@@ -160,7 +192,7 @@ export default function ProjectsPage() {
                             </div>
                             <div className="modal-footer">
                                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">Create Project</button>
+                                <button type="submit" className="btn btn-primary">{editItem ? 'Save Changes' : 'Create Project'}</button>
                             </div>
                         </form>
                     </div>

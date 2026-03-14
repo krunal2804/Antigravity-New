@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { HiOutlinePlus, HiOutlinePencil, HiOutlineX, HiOutlineOfficeBuilding } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiOutlineX, HiOutlineOfficeBuilding, HiOutlineEye } from 'react-icons/hi';
+import Breadcrumb from '../components/Breadcrumb';
 
 export default function OrganizationsPage() {
     const [orgs, setOrgs] = useState([]);
@@ -8,6 +10,7 @@ export default function OrganizationsPage() {
     const [showModal, setShowModal] = useState(false);
     const [editOrg, setEditOrg] = useState(null);
     const [form, setForm] = useState({ name: '', industry: '', city: '', state: '', country: '', phone: '', email: '' });
+    const navigate = useNavigate();
 
     const fetchOrgs = () => {
         api.get('/organizations').then((r) => setOrgs(r.data)).catch(console.error).finally(() => setLoading(false));
@@ -16,7 +19,18 @@ export default function OrganizationsPage() {
     useEffect(fetchOrgs, []);
 
     const openAdd = () => { setEditOrg(null); setForm({ name: '', industry: '', city: '', state: '', country: '', phone: '', email: '' }); setShowModal(true); };
-    const openEdit = (org) => { setEditOrg(org); setForm({ name: org.name, industry: org.industry || '', city: org.city || '', state: org.state || '', country: org.country || '', phone: org.phone || '', email: org.email || '' }); setShowModal(true); };
+    const openEdit = (e, org) => { e.stopPropagation(); setEditOrg(org); setForm({ name: org.name, industry: org.industry || '', city: org.city || '', state: org.state || '', country: org.country || '', phone: org.phone || '', email: org.email || '' }); setShowModal(true); };
+
+    const handleDelete = async (e, org) => {
+        e.stopPropagation();
+        if (!window.confirm(`Are you sure you want to delete "${org.name}"? This will deactivate the client and all related data.`)) return;
+        try {
+            await api.delete(`/organizations/${org.id}`);
+            fetchOrgs();
+        } catch (err) {
+            alert(err.response?.data?.error || 'Failed to delete client.');
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -29,7 +43,7 @@ export default function OrganizationsPage() {
             setShowModal(false);
             fetchOrgs();
         } catch (err) {
-            alert(err.response?.data?.error || 'Failed to save organization.');
+            alert(err.response?.data?.error || 'Failed to save client.');
         }
     };
 
@@ -37,10 +51,14 @@ export default function OrganizationsPage() {
 
     return (
         <div className="fade-in">
+            <Breadcrumb items={[
+                { label: 'Home', path: '/' },
+                { label: 'Clients', path: '/clients' }
+            ]} />
             <div className="table-container">
                 <div className="table-header">
-                    <h2>All Organizations ({orgs.length})</h2>
-                    <button className="btn btn-primary btn-sm" onClick={openAdd}><HiOutlinePlus /> Add Organization</button>
+                    <h2>All Clients ({orgs.length})</h2>
+                    <button className="btn btn-primary btn-sm" onClick={openAdd}><HiOutlinePlus /> Add Client</button>
                 </div>
 
                 {orgs.length > 0 ? (
@@ -57,14 +75,17 @@ export default function OrganizationsPage() {
                         </thead>
                         <tbody>
                             {orgs.map((org) => (
-                                <tr key={org.id}>
+                                <tr key={org.id} onClick={() => navigate(`/clients/${org.id}`)} style={{ cursor: 'pointer' }}>
                                     <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{org.name}</td>
                                     <td>{org.industry || '—'}</td>
                                     <td>{[org.city, org.state, org.country].filter(Boolean).join(', ') || '—'}</td>
                                     <td><span className="badge badge-info">{org.assignment_count}</span></td>
                                     <td><span className="badge badge-purple">{org.project_count}</span></td>
                                     <td>
-                                        <button className="btn-icon" onClick={() => openEdit(org)} title="Edit"><HiOutlinePencil /></button>
+                                        <div style={{ display: 'flex', gap: '6px' }}>
+                                            <button className="btn-icon" onClick={(e) => openEdit(e, org)} title="Edit"><HiOutlinePencil /></button>
+                                            <button className="btn-icon" onClick={(e) => handleDelete(e, org)} title="Delete" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -73,7 +94,7 @@ export default function OrganizationsPage() {
                 ) : (
                     <div className="empty-state">
                         <div className="icon"><HiOutlineOfficeBuilding /></div>
-                        <h3>No organizations yet</h3>
+                        <h3>No clients yet</h3>
                         <p>Add your first client company to get started.</p>
                     </div>
                 )}
@@ -83,7 +104,7 @@ export default function OrganizationsPage() {
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2>{editOrg ? 'Edit Organization' : 'Add Organization'}</h2>
+                            <h2>{editOrg ? 'Edit Client' : 'Add Client'}</h2>
                             <button className="btn-icon" onClick={() => setShowModal(false)}><HiOutlineX /></button>
                         </div>
                         <form onSubmit={handleSubmit}>
@@ -125,7 +146,7 @@ export default function OrganizationsPage() {
                             </div>
                             <div className="modal-footer">
                                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">{editOrg ? 'Save Changes' : 'Add Organization'}</button>
+                                <button type="submit" className="btn btn-primary">{editOrg ? 'Save Changes' : 'Add Client'}</button>
                             </div>
                         </form>
                     </div>
