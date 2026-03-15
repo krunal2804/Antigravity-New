@@ -168,9 +168,12 @@ router.delete('/steps/:stepId', authenticate, async (req, res) => {
 // POST /api/services/steps/:stepId/tasks
 router.post('/steps/:stepId/tasks', authenticate, async (req, res) => {
     try {
-        const { name, description, default_duration_days } = req.body;
-        let { sequence_order } = req.body;
+        const { name, description } = req.body;
+        let { sequence_order, default_duration_days } = req.body;
         if (!name) return res.status(400).json({ error: 'Task name is required.' });
+
+        // allow clearing duration
+        if (default_duration_days === '') default_duration_days = null;
 
         if (sequence_order === undefined || sequence_order === null) {
             const lastTask = await db('service_tasks')
@@ -193,8 +196,12 @@ router.post('/steps/:stepId/tasks', authenticate, async (req, res) => {
 // PUT /api/services/tasks/:taskId
 router.put('/tasks/:taskId', authenticate, async (req, res) => {
     try {
-        const { name, description, default_duration_days, sequence_order } = req.body;
+        const { name, description, sequence_order } = req.body;
+        let { default_duration_days } = req.body;
         if (!name) return res.status(400).json({ error: 'Task name is required.' });
+
+        // allow clearing duration
+        if (default_duration_days === '') default_duration_days = null;
 
         const [task] = await db('service_tasks').where({ id: req.params.taskId }).update({
             name, description, default_duration_days, sequence_order, updated_at: db.fn.now()

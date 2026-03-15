@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 import { 
     HiOutlinePlus, HiOutlineTrash, HiOutlineCollection, 
-    HiOutlineDocumentAdd, HiOutlineX, HiOutlinePaperClip
+    HiOutlineDocumentAdd, HiOutlineX, HiOutlinePaperClip, HiOutlinePencil
 } from 'react-icons/hi';
 
 function toRoman(num) {
@@ -67,9 +67,9 @@ export default function ServicesPage() {
 
     const openModal = (type, parentId, editData = null) => {
         setModalConfig({ type, parentId, editData });
-        if (type === 'service') setForm(editData || { name: '', code: '', description: '' });
-        if (type === 'step') setForm(editData || { name: '', description: '' });
-        if (type === 'task') setForm(editData || { name: '', description: '', default_duration_days: '' });
+        if (type === 'service') setForm(editData ? { ...editData } : { name: '', code: '', description: '' });
+        if (type === 'step') setForm(editData ? { ...editData } : { name: '', description: '' });
+        if (type === 'task') setForm(editData ? { ...editData } : { name: '', description: '', default_duration_days: '' });
         if (type === 'doc') setForm({ document_id: '' });
         if (type === 'doc_create') setForm({ name: '', file_url: '', description: '' });
     };
@@ -193,7 +193,7 @@ export default function ServicesPage() {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Step {toRoman(idx)} {step.name ? `- ${step.name}` : ''}</h3>
                                             <div style={{ display: 'flex', gap: '8px' }}>
-                                                <button className="btn-icon" onClick={() => openModal('step', serviceDetails.id, step)} title="Edit Step"><HiOutlinePlus style={{transform: 'rotate(45deg)'}}/></button>
+                                                <button className="btn-icon" onClick={() => openModal('step', serviceDetails.id, step)} title="Edit Step"><HiOutlinePencil /></button>
                                                 <button className="btn-icon" onClick={() => openModal('task', step.id)} title="Add Task"><HiOutlinePlus /></button>
                                                 <button className="btn-icon" onClick={() => handleDelete('step', step.id)} title="Delete Step" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
                                             </div>
@@ -210,7 +210,7 @@ export default function ServicesPage() {
                                                                 <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Duration: {task.default_duration_days || '-'} days</div>
                                                             </div>
                                                             <div style={{ display: 'flex', gap: '8px' }}>
-                                                                <button className="btn-icon" onClick={() => openModal('task', step.id, task)} title="Edit Task" style={{ color: 'var(--text-secondary)' }}><HiOutlinePlus style={{transform: 'rotate(45deg)'}}/></button>
+                                                                <button className="btn-icon" onClick={() => openModal('task', step.id, task)} title="Edit Task" style={{ color: 'var(--text-secondary)' }}><HiOutlinePencil /></button>
                                                                 <button className="btn-icon" onClick={() => openModal('doc', task.id)} title="Attach Reference Document" style={{ color: 'var(--primary)' }}><HiOutlineDocumentAdd /></button>
                                                                 <button className="btn-icon" onClick={() => handleDelete('task', task.id)} title="Delete Task" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
                                                             </div>
