@@ -8,6 +8,7 @@ import {
     HiOutlineClock,
     HiOutlineExclamationCircle,
     HiOutlineClipboardList,
+    HiOutlinePaperClip
 } from 'react-icons/hi';
 
 export default function ProjectDetailPage() {
