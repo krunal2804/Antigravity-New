@@ -139,33 +139,100 @@ export default function ProjectDetailPage() {
                         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
                             <span className="card-title">Project Tasks ({total})</span>
                         </div>
-                        <div className="task-list" style={{ padding: '12px' }}>
-                            {project.tasks.map((task) => (
-                                <div className="task-item" key={task.id}>
-                                    <div style={{ cursor: 'default' }}>
-                                        {getTaskStatusIcon(task.status, task.due_date)}
+                        <div style={{ padding: '12px' }}>
+                            {/* Grouping Logic */}
+                            {(() => {
+                                const groups = {};
+                                project.tasks.forEach(t => {
+                                    const name = t.step_name || 'Other';
+                                    if (!groups[name]) groups[name] = [];
+                                    groups[name].push(t);
+                                });
+                                // Keep 'Other' at the end
+                                const stepNames = Object.keys(groups).sort((a, b) => {
+                                    if (a === 'Other') return 1;
+                                    if (b === 'Other') return -1;
+                                    return 0;
+                                });
+
+                                return stepNames.length > 0 ? stepNames.map((stepName) => (
+                                    <div key={stepName} style={{ marginBottom: '24px' }}>
+                                        <div style={{ 
+                                            background: 'var(--bg-secondary)', 
+                                            padding: '12px 16px', 
+                                            borderRadius: 'var(--radius-md)', 
+                                            fontWeight: 700, 
+                                            fontSize: '14px', 
+                                            color: 'var(--text-primary)',
+                                            marginBottom: '12px'
+                                        }}>
+                                            {stepName}
+                                        </div>
+                                        <div className="task-list">
+                                            {groups[stepName].map((task) => (
+                                                <div className="task-item" key={task.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '16px' }}>
+                                                        <div style={{ cursor: 'default' }}>
+                                                            {getTaskStatusIcon(task.status, task.due_date)}
+                                                        </div>
+                                                        <div className="task-order">{task.sequence_order}</div>
+                                                        <div className="task-info" style={{ flex: 1 }}>
+                                                            <h4 style={{ textDecoration: task.status === 'completed' ? 'line-through' : 'none', opacity: task.status === 'completed' ? 0.7 : 1 }}>
+                                                                {task.name}
+                                                            </h4>
+                                                            <p>
+                                                                {task.due_date && `Due: ${new Date(task.due_date).toLocaleDateString()}`}
+                                                                {task.assignee_first_name && ` • ${task.assignee_first_name} ${task.assignee_last_name}`}
+                                                            </p>
+                                                        </div>
+                                                        <select
+                                                            className="task-status-select"
+                                                            value={task.status}
+                                                            onChange={(e) => updateTaskStatus(task.id, e.target.value)}
+                                                        >
+                                                            {statusOptions.map((s) => (
+                                                                <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    
+                                                    {/* Reference Documents Display */}
+                                                    {task.documents?.length > 0 && (
+                                                        <div style={{ marginLeft: '48px', marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                            {task.documents.map(doc => (
+                                                                <a 
+                                                                    key={doc.id} 
+                                                                    href={doc.file_url} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    style={{ 
+                                                                        display: 'inline-flex', 
+                                                                        alignItems: 'center', 
+                                                                        gap: '4px', 
+                                                                        fontSize: '12px',
+                                                                        padding: '4px 8px',
+                                                                        background: 'var(--bg-secondary)',
+                                                                        border: '1px dashed var(--border)',
+                                                                        borderRadius: '4px',
+                                                                        color: 'var(--primary)',
+                                                                        textDecoration: 'none'
+                                                                    }}
+                                                                >
+                                                                    <HiOutlinePaperClip /> {doc.name}
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <div className="task-order">{task.sequence_order}</div>
-                                    <div className="task-info">
-                                        <h4 style={{ textDecoration: task.status === 'completed' ? 'line-through' : 'none', opacity: task.status === 'completed' ? 0.7 : 1 }}>
-                                            {task.name}
-                                        </h4>
-                                        <p>
-                                            {task.due_date && `Due: ${new Date(task.due_date).toLocaleDateString()}`}
-                                            {task.assignee_first_name && ` • ${task.assignee_first_name} ${task.assignee_last_name}`}
-                                        </p>
+                                )) : (
+                                    <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                        No tasks assigned to this project yet.
                                     </div>
-                                    <select
-                                        className="task-status-select"
-                                        value={task.status}
-                                        onChange={(e) => updateTaskStatus(task.id, e.target.value)}
-                                    >
-                                        {statusOptions.map((s) => (
-                                            <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            ))}
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>

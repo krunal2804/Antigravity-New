@@ -76,7 +76,19 @@ router.get('/:id', authenticate, async (req, res) => {
             .leftJoin('users', 'project_tasks.assigned_to', 'users.id')
             .select('project_tasks.*', 'users.first_name as assignee_first_name', 'users.last_name as assignee_last_name')
             .where({ project_id: project.id })
-            .orderBy('sequence_order');
+            .orderBy('sequence_order')
+            .orderBy('id');
+
+        for (let task of tasks) {
+            if (task.service_task_id) {
+                task.documents = await db('reference_documents')
+                    .join('service_task_documents', 'reference_documents.id', 'service_task_documents.document_id')
+                    .where('service_task_documents.service_task_id', task.service_task_id)
+                    .select('reference_documents.*');
+            } else {
+                task.documents = [];
+            }
+        }
 
         const members = await db('project_members')
             .join('users', 'project_members.user_id', 'users.id')
