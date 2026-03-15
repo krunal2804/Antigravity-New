@@ -25,11 +25,17 @@ router.get('/:id', authenticate, async (req, res) => {
         if (!service) return res.status(404).json({ error: 'Service not found.' });
 
         // Fetch Steps
-        const steps = await db('service_steps').where({ service_id: service.id, is_active: true }).orderBy('sequence_order');
+        const steps = await db('service_steps')
+            .where({ service_id: service.id, is_active: true })
+            .orderBy('sequence_order')
+            .orderBy('id');
 
         // Fetch Tasks for each Step
         for (let step of steps) {
-            step.tasks = await db('service_tasks').where({ service_step_id: step.id, is_active: true }).orderBy('sequence_order');
+            step.tasks = await db('service_tasks')
+                .where({ service_step_id: step.id, is_active: true })
+                .orderBy('sequence_order')
+                .orderBy('id');
             
             // Fetch Shared Documents for each Task
             for (let task of step.tasks) {
@@ -131,10 +137,10 @@ router.post('/:id/steps', authenticate, async (req, res) => {
 router.put('/steps/:stepId', authenticate, async (req, res) => {
     try {
         const { name, description, sequence_order } = req.body;
+        const updateData = { name, description, updated_at: db.fn.now() };
+        if (sequence_order !== undefined) updateData.sequence_order = sequence_order;
 
-        const [step] = await db('service_steps').where({ id: req.params.stepId }).update({
-            name, description, sequence_order, updated_at: db.fn.now()
-        }).returning('*');
+        const [step] = await db('service_steps').where({ id: req.params.stepId }).update(updateData).returning('*');
         res.json(step);
     } catch (err) {
         res.status(500).json({ error: 'Failed to update step.' });
@@ -203,9 +209,10 @@ router.put('/tasks/:taskId', authenticate, async (req, res) => {
         // allow clearing duration
         if (default_duration_days === '') default_duration_days = null;
 
-        const [task] = await db('service_tasks').where({ id: req.params.taskId }).update({
-            name, description, default_duration_days, sequence_order, updated_at: db.fn.now()
-        }).returning('*');
+        const updateData = { name, description, default_duration_days, updated_at: db.fn.now() };
+        if (sequence_order !== undefined) updateData.sequence_order = sequence_order;
+
+        const [task] = await db('service_tasks').where({ id: req.params.taskId }).update(updateData).returning('*');
         res.json(task);
     } catch (err) {
         res.status(500).json({ error: 'Failed to update task.' });
