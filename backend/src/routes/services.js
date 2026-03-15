@@ -57,7 +57,12 @@ router.post('/', authenticate, async (req, res) => {
         const [service] = await db('services').insert({ name, code, description }).returning('*');
         res.status(201).json(service);
     } catch (err) {
-        if (err.code === '23505') return res.status(400).json({ error: 'Service name or code already exists.' });
+        if (err.code === '23505') {
+            if (err.detail && err.detail.includes('code')) {
+                return res.status(400).json({ error: 'Service code already in use, please change the service code.' });
+            }
+            return res.status(400).json({ error: 'Service name already in use, please change the name.' });
+        }
         res.status(500).json({ error: 'Failed to create service.' });
     }
 });
@@ -69,16 +74,25 @@ router.put('/:id', authenticate, async (req, res) => {
         const [service] = await db('services').where({ id: req.params.id }).update({ name, code, description, is_active, updated_at: db.fn.now() }).returning('*');
         res.json(service);
     } catch (err) {
+        if (err.code === '23505') {
+            if (err.detail && err.detail.includes('code')) {
+                return res.status(400).json({ error: 'Service code already in use, please change the service code.' });
+            }
+            return res.status(400).json({ error: 'Service name already in use, please change the name.' });
+        }
         res.status(500).json({ error: 'Failed to update service.' });
     }
 });
 
-// DELETE /api/services/:id (Soft delete)
+// DELETE /api/services/:id (Hard delete)
 router.delete('/:id', authenticate, async (req, res) => {
     try {
-        await db('services').where({ id: req.params.id }).update({ is_active: false });
+        await db('services').where({ id: req.params.id }).delete();
         res.json({ message: 'Service deleted.' });
     } catch (err) {
+        if (err.code === '23503') {
+            return res.status(400).json({ error: 'Cannot delete this service because it is currently used by one or more projects.' });
+        }
         res.status(500).json({ error: 'Failed to delete service.' });
     }
 });
