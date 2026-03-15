@@ -67,9 +67,9 @@ export default function ServicesPage() {
 
     const openModal = (type, parentId, editData = null) => {
         setModalConfig({ type, parentId, editData });
-        if (type === 'service') setForm({ name: '', code: '', description: '' });
-        if (type === 'step') setForm({ name: '', description: '', sequence_order: 0 });
-        if (type === 'task') setForm({ name: '', description: '', default_duration_days: '', sequence_order: 0 });
+        if (type === 'service') setForm(editData || { name: '', code: '', description: '' });
+        if (type === 'step') setForm(editData || { name: '', description: '' });
+        if (type === 'task') setForm(editData || { name: '', description: '', default_duration_days: '' });
         if (type === 'doc') setForm({ document_id: '' });
         if (type === 'doc_create') setForm({ name: '', file_url: '', description: '' });
     };
@@ -88,14 +88,19 @@ export default function ServicesPage() {
             if (type === 'doc_create' && (!form.name.trim() || !form.file_url.trim())) return alert("Name and File URL are required.");
 
             if (type === 'service') {
-                const res = await api.post('/services', form);
-                setSelectedServiceId(res.data.id);
+                if (modalConfig.editData) await api.put(`/services/${modalConfig.editData.id}`, form);
+                else {
+                    const res = await api.post('/services', form);
+                    setSelectedServiceId(res.data.id);
+                }
                 fetchData();
             } else if (type === 'step') {
-                await api.post(`/services/${parentId}/steps`, form);
+                if (modalConfig.editData) await api.put(`/services/steps/${modalConfig.editData.id}`, form);
+                else await api.post(`/services/${parentId}/steps`, form);
                 loadServiceDetails(selectedServiceId);
             } else if (type === 'task') {
-                await api.post(`/services/steps/${parentId}/tasks`, form);
+                if (modalConfig.editData) await api.put(`/services/tasks/${modalConfig.editData.id}`, form);
+                else await api.post(`/services/steps/${parentId}/tasks`, form);
                 loadServiceDetails(selectedServiceId);
             } else if (type === 'doc') {
                 await api.post(`/services/tasks/${parentId}/documents`, form);
@@ -188,6 +193,7 @@ export default function ServicesPage() {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Step {toRoman(idx)} {step.name ? `- ${step.name}` : ''}</h3>
                                             <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button className="btn-icon" onClick={() => openModal('step', serviceDetails.id, step)} title="Edit Step"><HiOutlinePlus style={{transform: 'rotate(45deg)'}}/></button>
                                                 <button className="btn-icon" onClick={() => openModal('task', step.id)} title="Add Task"><HiOutlinePlus /></button>
                                                 <button className="btn-icon" onClick={() => handleDelete('step', step.id)} title="Delete Step" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
                                             </div>
@@ -204,6 +210,7 @@ export default function ServicesPage() {
                                                                 <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Duration: {task.default_duration_days || '-'} days</div>
                                                             </div>
                                                             <div style={{ display: 'flex', gap: '8px' }}>
+                                                                <button className="btn-icon" onClick={() => openModal('task', step.id, task)} title="Edit Task" style={{ color: 'var(--text-secondary)' }}><HiOutlinePlus style={{transform: 'rotate(45deg)'}}/></button>
                                                                 <button className="btn-icon" onClick={() => openModal('doc', task.id)} title="Attach Reference Document" style={{ color: 'var(--primary)' }}><HiOutlineDocumentAdd /></button>
                                                                 <button className="btn-icon" onClick={() => handleDelete('task', task.id)} title="Delete Task" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
                                                             </div>
@@ -253,9 +260,9 @@ export default function ServicesPage() {
                     <div className="modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>
-                                {modalConfig.type === 'service' && "Create Service"}
-                                {modalConfig.type === 'step' && "Add Step"}
-                                {modalConfig.type === 'task' && "Add Task"}
+                                {modalConfig.type === 'service' && (modalConfig.editData ? "Edit Service" : "Create Service")}
+                                {modalConfig.type === 'step' && (modalConfig.editData ? "Edit Step" : "Add Step")}
+                                {modalConfig.type === 'task' && (modalConfig.editData ? "Edit Task" : "Add Task")}
                                 {modalConfig.type === 'doc' && "Attach Document"}
                                 {modalConfig.type === 'doc_create' && "Upload New Document"}
                             </h2>
@@ -273,18 +280,14 @@ export default function ServicesPage() {
                                 {modalConfig.type === 'step' && (
                                     <>
                                         <div className="form-group"><label>Step Name (Optional)</label><input className="form-control" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Pre-Audit (Optional)" /></div>
-                                        <div className="form-group"><label>Description</label><input className="form-control" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
-                                        <div className="form-group"><label>Sequence Order</label><input type="number" className="form-control" value={form.sequence_order} onChange={e => setForm({...form, sequence_order: parseInt(e.target.value)})} /></div>
+                                        <div className="form-group"><label>Description</label><input className="form-control" value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} /></div>
                                     </>
                                 )}
                                 {modalConfig.type === 'task' && (
                                     <>
-                                        <div className="form-group"><label>Task Name *</label><input required className="form-control" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Data Collection" /></div>
-                                        <div className="form-group"><label>Description</label><input className="form-control" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
-                                        <div className="form-row">
-                                            <div className="form-group"><label>Standard Duration (Days)</label><input type="number" className="form-control" value={form.default_duration_days} onChange={e => setForm({...form, default_duration_days: parseInt(e.target.value)})} /></div>
-                                            <div className="form-group"><label>Sequence Order</label><input type="number" className="form-control" value={form.sequence_order} onChange={e => setForm({...form, sequence_order: parseInt(e.target.value)})} /></div>
-                                        </div>
+                                        <div className="form-group"><label>Task Name *</label><input required className="form-control" value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Data Collection" /></div>
+                                        <div className="form-group"><label>Description</label><input className="form-control" value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} /></div>
+                                        <div className="form-group"><label>Standard Duration (Days)</label><input type="number" className="form-control" value={form.default_duration_days || ''} onChange={e => setForm({...form, default_duration_days: parseInt(e.target.value)})} /></div>
                                     </>
                                 )}
                                 {modalConfig.type === 'doc' && (

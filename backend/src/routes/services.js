@@ -104,13 +104,22 @@ router.delete('/:id', authenticate, async (req, res) => {
 // POST /api/services/:id/steps
 router.post('/:id/steps', authenticate, async (req, res) => {
     try {
-        const { name, description, sequence_order } = req.body;
+        const { name, description } = req.body;
+        let { sequence_order } = req.body;
+
+        if (sequence_order === undefined || sequence_order === null) {
+            const lastStep = await db('service_steps')
+                .where({ service_id: req.params.id })
+                .orderBy('sequence_order', 'desc')
+                .first();
+            sequence_order = lastStep ? lastStep.sequence_order + 1 : 0;
+        }
 
         const [step] = await db('service_steps').insert({
             service_id: req.params.id,
             name,
             description,
-            sequence_order: sequence_order || 0
+            sequence_order
         }).returning('*');
         res.status(201).json(step);
     } catch (err) {
@@ -135,8 +144,18 @@ router.put('/steps/:stepId', authenticate, async (req, res) => {
 // DELETE /api/services/steps/:stepId
 router.delete('/steps/:stepId', authenticate, async (req, res) => {
     try {
+        const step = await db('service_steps').where({ id: req.params.stepId }).first();
+        if (!step) return res.status(404).json({ error: 'Step not found.' });
+
         await db('service_steps').where({ id: req.params.stepId }).delete();
-        res.json({ message: 'Step deleted.' });
+
+        // Cascade reorder remaining steps
+        await db('service_steps')
+            .where({ service_id: step.service_id })
+            .andWhere('sequence_order', '>', step.sequence_order)
+            .decrement('sequence_order', 1);
+
+        res.json({ message: 'Step deleted and remaining steps reordered.' });
     } catch (err) {
         res.status(500).json({ error: 'Failed to delete step.' });
     }
@@ -149,12 +168,21 @@ router.delete('/steps/:stepId', authenticate, async (req, res) => {
 // POST /api/services/steps/:stepId/tasks
 router.post('/steps/:stepId/tasks', authenticate, async (req, res) => {
     try {
-        const { name, description, default_duration_days, sequence_order } = req.body;
+        const { name, description, default_duration_days } = req.body;
+        let { sequence_order } = req.body;
         if (!name) return res.status(400).json({ error: 'Task name is required.' });
+
+        if (sequence_order === undefined || sequence_order === null) {
+            const lastTask = await db('service_tasks')
+                .where({ service_step_id: req.params.stepId })
+                .orderBy('sequence_order', 'desc')
+                .first();
+            sequence_order = lastTask ? lastTask.sequence_order + 1 : 0;
+        }
 
         const [task] = await db('service_tasks').insert({
             service_step_id: req.params.stepId,
-            name, description, default_duration_days, sequence_order: sequence_order || 0
+            name, description, default_duration_days, sequence_order
         }).returning('*');
         res.status(201).json(task);
     } catch (err) {
@@ -180,8 +208,18 @@ router.put('/tasks/:taskId', authenticate, async (req, res) => {
 // DELETE /api/services/tasks/:taskId
 router.delete('/tasks/:taskId', authenticate, async (req, res) => {
     try {
+        const task = await db('service_tasks').where({ id: req.params.taskId }).first();
+        if (!task) return res.status(404).json({ error: 'Task not found.' });
+
         await db('service_tasks').where({ id: req.params.taskId }).delete();
-        res.json({ message: 'Task deleted.' });
+
+        // Cascade reorder remaining tasks
+        await db('service_tasks')
+            .where({ service_step_id: task.service_step_id })
+            .andWhere('sequence_order', '>', task.sequence_order)
+            .decrement('sequence_order', 1);
+
+        res.json({ message: 'Task deleted and remaining tasks reordered.' });
     } catch (err) {
         res.status(500).json({ error: 'Failed to delete task.' });
     }
