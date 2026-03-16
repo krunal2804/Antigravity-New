@@ -77,6 +77,8 @@ router.post('/', authenticate, async (req, res) => {
 router.put('/:id', authenticate, async (req, res) => {
     try {
         const { name, code, description, is_active } = req.body;
+        if (!name || !code) return res.status(400).json({ error: 'Name and Code are required.' });
+        
         const [service] = await db('services').where({ id: req.params.id }).update({ name, code, description, is_active, updated_at: db.fn.now() }).returning('*');
         res.json(service);
     } catch (err) {

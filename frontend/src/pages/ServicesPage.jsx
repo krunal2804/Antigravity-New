@@ -193,6 +193,9 @@ export default function ServicesPage() {
                                 <p style={{ color: 'var(--text-secondary)', margin: 0 }}>{serviceDetails.description}</p>
                             </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
+                                <button className="btn btn-secondary btn-sm" onClick={() => openModal('service', null, serviceDetails)}>
+                                    <HiOutlinePencil /> Edit Service
+                                </button>
                                 <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleDelete('service', serviceDetails.id)}><HiOutlineTrash /> Delete Service</button>
                                 <button className="btn btn-primary btn-sm" onClick={() => openModal('step', serviceDetails.id)}>
                                     <HiOutlinePlus /> Add Step
