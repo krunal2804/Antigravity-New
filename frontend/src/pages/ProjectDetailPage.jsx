@@ -171,7 +171,7 @@ export default function ProjectDetailPage() {
                                         </div>
                                         <div className="task-list">
                                             {groups[stepName].map((task) => (
-                                                <div className="task-item" key={task.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                <div className="task-item" key={task.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '16px' }}>
                                                         <div style={{ cursor: 'default' }}>
                                                             {getTaskStatusIcon(task.status, task.due_date)}
