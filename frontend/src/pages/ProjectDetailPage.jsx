@@ -8,7 +8,7 @@ import {
     HiOutlineClock,
     HiOutlineExclamationCircle,
     HiOutlineClipboardList,
-    HiOutlinePaperClip
+    HiOutlineDocumentText
 } from 'react-icons/hi';
 
 export default function ProjectDetailPage() {
@@ -199,7 +199,8 @@ export default function ProjectDetailPage() {
                                                     
                                                     {/* Reference Documents Display */}
                                                     {task.documents?.length > 0 && (
-                                                        <div style={{ marginLeft: '48px', marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                        <div style={{ marginLeft: '48px', marginTop: '4px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Standard for reference:</span>
                                                             {task.documents.map(doc => (
                                                                 <a 
                                                                     key={doc.id} 
@@ -209,17 +210,19 @@ export default function ProjectDetailPage() {
                                                                     style={{ 
                                                                         display: 'inline-flex', 
                                                                         alignItems: 'center', 
-                                                                        gap: '4px', 
-                                                                        fontSize: '12px',
-                                                                        padding: '4px 8px',
-                                                                        background: 'var(--bg-secondary)',
-                                                                        border: '1px dashed var(--border)',
-                                                                        borderRadius: '4px',
-                                                                        color: 'var(--primary)',
-                                                                        textDecoration: 'none'
+                                                                        gap: '6px', 
+                                                                        fontSize: '13px',
+                                                                        fontWeight: 600,
+                                                                        padding: '6px 12px',
+                                                                        background: 'var(--primary)',
+                                                                        color: 'white',
+                                                                        border: 'none',
+                                                                        borderRadius: '6px',
+                                                                        textDecoration: 'none',
+                                                                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                                                                     }}
                                                                 >
-                                                                    <HiOutlinePaperClip /> {doc.name}
+                                                                    <HiOutlineDocumentText size={16} /> {doc.name}
                                                                 </a>
                                                             ))}
                                                         </div>
