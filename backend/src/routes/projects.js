@@ -7,7 +7,7 @@ const router = express.Router();
 // GET /api/projects
 router.get('/', authenticate, async (req, res) => {
     try {
-        const { assignment_id, status } = req.query;
+        const { assignment_id, status, service_id } = req.query;
         let query = db('projects')
             .join('assignments', 'projects.assignment_id', 'assignments.id')
             .join('organizations', 'assignments.organization_id', 'organizations.id')
@@ -23,6 +23,7 @@ router.get('/', authenticate, async (req, res) => {
 
         if (assignment_id) query = query.where('projects.assignment_id', assignment_id);
         if (status) query = query.where('projects.status', status);
+        if (service_id) query = query.where('projects.service_id', service_id);
 
         const projects = await query.orderBy('projects.created_at', 'desc');
 

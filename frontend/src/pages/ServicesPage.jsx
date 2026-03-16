@@ -116,9 +116,24 @@ export default function ServicesPage() {
     };
 
     const handleDelete = async (type, id, parentId = null) => {
-        if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return;
+        if (type !== 'service') {
+            if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return;
+        }
+
         try {
             if (type === 'service') {
+                const r = await api.get(`/projects?service_id=${id}`);
+                const projects = r.data;
+                
+                if (projects.length > 0) {
+                    const projectList = projects.map(p => `• ${p.name}`).join('\n');
+                    if (!window.confirm(`This service is currently used by the following projects:\n\n${projectList}\n\nAre you sure you want to delete this service?`)) {
+                        return;
+                    }
+                } else {
+                    if (!window.confirm(`Are you sure you want to delete this service?`)) return;
+                }
+
                 await api.delete(`/services/${id}`);
                 setSelectedServiceId(null);
                 fetchData();
@@ -133,7 +148,7 @@ export default function ServicesPage() {
                 loadServiceDetails(selectedServiceId);
             }
         } catch(e) {
-            alert("Delete failed.");
+            alert(e.response?.data?.error || "Delete failed.");
         }
     };
 
