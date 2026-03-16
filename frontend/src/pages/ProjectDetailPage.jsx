@@ -199,7 +199,7 @@ export default function ProjectDetailPage() {
                                                     
                                                     {/* Reference Documents Display */}
                                                     {task.documents?.length > 0 && (
-                                                        <div style={{ marginLeft: '48px', marginTop: '4px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                                        <div style={{ marginLeft: 0, marginTop: '8px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                                                             <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Standard for reference:</span>
                                                             {task.documents.map(doc => (
                                                                 <a 
@@ -214,12 +214,12 @@ export default function ProjectDetailPage() {
                                                                         fontSize: '13px',
                                                                         fontWeight: 600,
                                                                         padding: '6px 12px',
-                                                                        background: 'var(--primary)',
-                                                                        color: 'white',
-                                                                        border: 'none',
+                                                                        background: 'var(--bg-hover)',
+                                                                        color: 'var(--text-primary)',
+                                                                        border: '1px solid var(--border)',
                                                                         borderRadius: '6px',
                                                                         textDecoration: 'none',
-                                                                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                                                                     }}
                                                                 >
                                                                     <HiOutlineDocumentText size={16} /> {doc.name}
