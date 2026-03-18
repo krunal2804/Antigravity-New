@@ -92,15 +92,18 @@ router.put('/:id', authenticate, async (req, res) => {
     }
 });
 
-// DELETE /api/services/:id (Hard delete)
+// DELETE /api/services/:id (Hard delete with Deep Sync)
 router.delete('/:id', authenticate, async (req, res) => {
     try {
+        // Deep Sync: Cascade delete all active projects relying on this service first
+        // (This naturally cleans up project_tasks and project references via DB cascade constraints)
+        await db('projects').where({ service_id: req.params.id }).delete();
+
+        // Finally, delete the service template itself
         await db('services').where({ id: req.params.id }).delete();
-        res.json({ message: 'Service deleted.' });
+        res.json({ message: 'Service and all synchronized projects successfully deleted.' });
     } catch (err) {
-        if (err.code === '23503') {
-            return res.status(400).json({ error: 'Cannot delete this service because it is currently used by one or more projects.' });
-        }
+        console.error("Service Delete Error:", err);
         res.status(500).json({ error: 'Failed to delete service.' });
     }
 });
@@ -143,6 +146,18 @@ router.put('/steps/:stepId', authenticate, async (req, res) => {
         if (sequence_order !== undefined) updateData.sequence_order = sequence_order;
 
         const [step] = await db('service_steps').where({ id: req.params.stepId }).update(updateData).returning('*');
+        
+        // Deep Sync: Update step_name on all project_tasks across active projects
+        if (name !== undefined) {
+             const templateTasks = await db('service_tasks').where({ service_step_id: step.id }).select('id');
+             const taskIds = templateTasks.map(t => t.id);
+             if (taskIds.length > 0) {
+                 await db('project_tasks')
+                     .whereIn('service_task_id', taskIds)
+                     .update({ step_name: name });
+             }
+        }
+
         res.json(step);
     } catch (err) {
         res.status(500).json({ error: 'Failed to update step.' });
@@ -154,6 +169,13 @@ router.delete('/steps/:stepId', authenticate, async (req, res) => {
     try {
         const step = await db('service_steps').where({ id: req.params.stepId }).first();
         if (!step) return res.status(404).json({ error: 'Step not found.' });
+
+        // Deep Sync: Delete project tasks currently linked to this step
+        const templateTasks = await db('service_tasks').where({ service_step_id: step.id }).select('id');
+        const taskIds = templateTasks.map(t => t.id);
+        if (taskIds.length > 0) {
+            await db('project_tasks').whereIn('service_task_id', taskIds).delete();
+        }
 
         await db('service_steps').where({ id: req.params.stepId }).delete();
 
@@ -195,6 +217,37 @@ router.post('/steps/:stepId/tasks', authenticate, async (req, res) => {
             service_step_id: req.params.stepId,
             name, description, default_duration_days, sequence_order
         }).returning('*');
+
+        // Deep Sync: Add this new task to all active projects relying on this service
+        const step = await db('service_steps').where({ id: req.params.stepId }).first();
+        if (step) {
+            const projects = await db('projects').where({ service_id: step.service_id, is_active: true }).select('id', 'start_date');
+            if (projects.length > 0) {
+                const projectTasksToInsert = projects.map(p => {
+                    let taskStart = null;
+                    let taskDue = null;
+                    if (p.start_date && task.default_duration_days) {
+                        taskStart = p.start_date;
+                        const due = new Date(p.start_date);
+                        due.setDate(due.getDate() + task.default_duration_days);
+                        taskDue = due.toISOString().split('T')[0];
+                    }
+                    return {
+                        project_id: p.id,
+                        service_task_id: task.id,
+                        step_name: step.name,
+                        name: task.name,
+                        description: task.description,
+                        sequence_order: task.sequence_order,
+                        is_mandatory: true,
+                        start_date: taskStart,
+                        due_date: taskDue
+                    };
+                });
+                await db('project_tasks').insert(projectTasksToInsert);
+            }
+        }
+
         res.status(201).json(task);
     } catch (err) {
         res.status(500).json({ error: 'Failed to create task.' });
@@ -215,6 +268,13 @@ router.put('/tasks/:taskId', authenticate, async (req, res) => {
         if (sequence_order !== undefined) updateData.sequence_order = sequence_order;
 
         const [task] = await db('service_tasks').where({ id: req.params.taskId }).update(updateData).returning('*');
+
+        // Deep Sync: Sync task changes down to cloned project_tasks
+        const projectTaskUpdate = { name: task.name, description: task.description, updated_at: db.fn.now() };
+        if (sequence_order !== undefined) projectTaskUpdate.sequence_order = task.sequence_order;
+        
+        await db('project_tasks').where({ service_task_id: task.id }).update(projectTaskUpdate);
+
         res.json(task);
     } catch (err) {
         res.status(500).json({ error: 'Failed to update task.' });
@@ -226,6 +286,9 @@ router.delete('/tasks/:taskId', authenticate, async (req, res) => {
     try {
         const task = await db('service_tasks').where({ id: req.params.taskId }).first();
         if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+        // Deep Sync: Delete all instances of this task across active projects
+        await db('project_tasks').where({ service_task_id: task.id }).delete();
 
         await db('service_tasks').where({ id: req.params.taskId }).delete();
 

@@ -83,6 +83,21 @@ export default function ServicesPage() {
 
     const closeModal = () => setModalConfig(null);
 
+    const checkProjectsAndConfirm = async (actionDesc) => {
+        if (!selectedServiceId) return true;
+        try {
+            const r = await api.get(`/projects?service_id=${selectedServiceId}`);
+            const projects = r.data;
+            if (projects.length > 0) {
+                const projectList = projects.map(p => `• ${p.name}`).join('\n');
+                return window.confirm(`This service is currently used by the following projects:\n\n${projectList}\n\nAny changes will instantly ripple out and affect these projects. Are you sure you want to ${actionDesc}?`);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        return true;
+    };
+
     const handleSave = async (e) => {
         e.preventDefault();
         try {
@@ -93,6 +108,12 @@ export default function ServicesPage() {
             if (type === 'task' && !form.name.trim()) return alert("Task name is required.");
             if (type === 'doc' && !form.document_id) return alert("Please select a document.");
             if (type === 'doc_create' && (!form.name.trim() || !form.file_url.trim())) return alert("Name and File URL are required.");
+
+            // Check Deep Sync Impact if modifying an existing service component
+            if (type !== 'service' || modalConfig.editData) {
+                const isConfirmed = await checkProjectsAndConfirm("save these changes");
+                if (!isConfirmed) return;
+            }
 
             if (type === 'service') {
                 if (modalConfig.editData) await api.put(`/services/${modalConfig.editData.id}`, form);
@@ -114,7 +135,7 @@ export default function ServicesPage() {
                 loadServiceDetails(selectedServiceId);
             } else if (type === 'doc_create') {
                 await api.post(`/services/reference_documents`, { ...form, service_id: selectedServiceId });
-                loadDocs(selectedServiceId); // reload scoped docs list
+                loadDocs(selectedServiceId);
             }
             closeModal();
         } catch (err) {
@@ -123,24 +144,16 @@ export default function ServicesPage() {
     };
 
     const handleDelete = async (type, id, parentId = null) => {
-        if (type !== 'service') {
-            if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return;
+        // Only run the generic confirm if we aren't about to run the deep sync confirm
+        if (type === 'doc_create') {
+             if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return;
         }
+
+        const isConfirmed = await checkProjectsAndConfirm(`delete this ${type}`);
+        if (!isConfirmed) return;
 
         try {
             if (type === 'service') {
-                const r = await api.get(`/projects?service_id=${id}`);
-                const projects = r.data;
-                
-                if (projects.length > 0) {
-                    const projectList = projects.map(p => `• ${p.name}`).join('\n');
-                    if (!window.confirm(`This service is currently used by the following projects:\n\n${projectList}\n\nAre you sure you want to delete this service?`)) {
-                        return;
-                    }
-                } else {
-                    if (!window.confirm(`Are you sure you want to delete this service?`)) return;
-                }
-
                 await api.delete(`/services/${id}`);
                 setSelectedServiceId(null);
                 fetchData();
