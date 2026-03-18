@@ -290,9 +290,7 @@ export default function ServicesPage() {
                                     </div>
                                 )}
                             </div>
-                        ) : (
-                            /* Steps Loop */
-                            serviceDetails.steps?.length > 0 ? (
+                        ) : serviceDetails.steps?.length > 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                                 {serviceDetails.steps.map((step, idx) => (
                                     <div key={step.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '20px', background: 'var(--bg-secondary)' }}>
