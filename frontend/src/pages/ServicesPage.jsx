@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 import { 
     HiOutlinePlus, HiOutlineTrash, HiOutlineCollection, 
-    HiOutlineDocumentAdd, HiOutlineX, HiOutlinePaperClip, HiOutlinePencil
+    HiOutlineDocumentAdd, HiOutlineX, HiOutlinePaperClip, HiOutlinePencil,
+    HiOutlineDocumentText, HiOutlineArrowLeft, HiOutlineExternalLink
 } from 'react-icons/hi';
 
 function toRoman(num) {
@@ -24,6 +25,7 @@ export default function ServicesPage() {
     
     const [docs, setDocs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showDocumentManager, setShowDocumentManager] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
@@ -65,6 +67,7 @@ export default function ServicesPage() {
         if (selectedServiceId) {
             loadServiceDetails(selectedServiceId);
             loadDocs(selectedServiceId);
+            setShowDocumentManager(false);
         }
     }, [selectedServiceId]);
 
@@ -230,6 +233,9 @@ export default function ServicesPage() {
                                 <p style={{ color: 'var(--text-secondary)', margin: 0 }}>{serviceDetails.description}</p>
                             </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
+                                <button className="btn btn-secondary btn-sm" onClick={() => setShowDocumentManager(true)}>
+                                    <HiOutlineDocumentText /> Manage Standard References
+                                </button>
                                 <button className="btn btn-secondary btn-sm" onClick={() => openModal('service', null, serviceDetails)}>
                                     <HiOutlinePencil /> Edit Service
                                 </button>
@@ -240,8 +246,53 @@ export default function ServicesPage() {
                             </div>
                         </div>
 
-                        {/* Steps Loop */}
-                        {serviceDetails.steps?.length > 0 ? (
+                        {showDocumentManager ? (
+                            <div className="document-manager fade-in">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
+                                    <button className="btn btn-secondary btn-sm" onClick={() => setShowDocumentManager(false)}>
+                                        <HiOutlineArrowLeft /> Back to Steps & Tasks
+                                    </button>
+                                    <button className="btn btn-primary btn-sm" onClick={() => openModal('doc_create')}>
+                                        <HiOutlinePlus /> Upload New Document
+                                    </button>
+                                </div>
+                                
+                                {docs.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {docs.map(doc => (
+                                            <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', border: '1px solid var(--border)', padding: '16px', borderRadius: 'var(--radius-md)' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                    <div style={{ fontSize: '24px', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', background: 'rgba(37,99,235,0.1)', borderRadius: '8px' }}>
+                                                        <HiOutlineDocumentText />
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-primary)', marginBottom: '4px' }}>{doc.name}</div>
+                                                        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                                                            {doc.description || 'No description provided.'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        View <HiOutlineExternalLink />
+                                                    </a>
+                                                    <button className="btn-icon" onClick={() => openModal('doc_create', null, doc)} title="Edit Document" style={{ color: 'var(--text-secondary)' }}><HiOutlinePencil /></button>
+                                                    <button className="btn-icon" onClick={() => handleDelete('doc_system', doc.id)} title="Delete Document" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="empty-state">
+                                        <div className="icon" style={{ background: 'rgba(37,99,235,0.1)', color: 'var(--primary)' }}><HiOutlineDocumentText /></div>
+                                        <h3>No Reference Documents</h3>
+                                        <p>Upload standard reference files to attach them to tasks in this service.</p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            /* Steps Loop */
+                            serviceDetails.steps?.length > 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                                 {serviceDetails.steps.map((step, idx) => (
                                     <div key={step.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '20px', background: 'var(--bg-secondary)' }}>
@@ -279,11 +330,7 @@ export default function ServicesPage() {
                                                                     {task.documents.map(doc => (
                                                                         <div key={doc.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(37, 99, 235, 0.1)', color: 'var(--primary)', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 500 }}>
                                                                             <HiOutlinePaperClip /> {doc.name}
-                                                                            <div style={{ display: 'flex', gap: '4px', marginLeft: '4px', borderLeft: '1px solid rgba(37,99,235,0.2)', paddingLeft: '4px' }}>
-                                                                                <HiOutlinePencil title="Edit Global Document" style={{ cursor: 'pointer' }} onClick={() => openModal('doc_create', null, doc)} />
-                                                                                <HiOutlineTrash title="Permanently Delete Document" style={{ cursor: 'pointer' }} onClick={() => handleDelete('doc_system', doc.id)} />
-                                                                                <HiOutlineX title="Unlink from this Task" style={{ cursor: 'pointer', color: 'var(--danger)' }} onClick={() => handleDelete('doc', doc.id, task.id)} />
-                                                                            </div>
+                                                                            <HiOutlineX title="Unlink from this Task" style={{ cursor: 'pointer', marginLeft: '4px', color: 'var(--danger)' }} onClick={() => handleDelete('doc', doc.id, task.id)} />
                                                                         </div>
                                                                     ))}
                                                                 </div>
