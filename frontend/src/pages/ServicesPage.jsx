@@ -244,8 +244,20 @@ export default function ServicesPage() {
                             </div>
                             <div>
                                 <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px 0', wordBreak: 'break-word', lineHeight: '1.5' }}>{serviceDetails.description}</p>
-                                <button className="btn btn-secondary btn-sm" onClick={() => setShowDocumentManager(true)}>
-                                    <HiOutlineDocumentText /> Manage Standard References
+                                <button 
+                                    className="btn btn-sm" 
+                                    style={{ 
+                                        background: 'rgba(37, 99, 235, 0.1)', 
+                                        color: 'var(--primary)', 
+                                        border: '1px solid rgba(37, 99, 235, 0.2)',
+                                        fontWeight: 600,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                    onClick={() => setShowDocumentManager(true)}
+                                >
+                                    <HiOutlineDocumentText size={16} /> Manage Standard References
                                 </button>
                             </div>
                         </div>
