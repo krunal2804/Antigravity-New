@@ -336,6 +336,32 @@ router.post('/reference_documents', authenticate, async (req, res) => {
     }
 });
 
+// PUT /api/services/reference_documents/:id
+router.put('/reference_documents/:id', authenticate, async (req, res) => {
+    try {
+        const { name, file_url, description } = req.body;
+        if (!name || !file_url) return res.status(400).json({ error: 'Name and file_url are required.' });
+
+        const [doc] = await db('reference_documents')
+            .where({ id: req.params.id })
+            .update({ name, file_url, description, updated_at: db.fn.now() })
+            .returning('*');
+        res.json(doc);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to update reference document.' });
+    }
+});
+
+// DELETE /api/services/reference_documents/:id
+router.delete('/reference_documents/:id', authenticate, async (req, res) => {
+    try {
+        await db('reference_documents').where({ id: req.params.id }).delete();
+        res.json({ message: 'Reference document permanently deleted.' });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to delete reference document.' });
+    }
+});
+
 // POST /api/services/tasks/:taskId/documents
 router.post('/tasks/:taskId/documents', authenticate, async (req, res) => {
     try {

@@ -78,7 +78,7 @@ export default function ServicesPage() {
         if (type === 'step') setForm(editData ? { ...editData } : { name: '', description: '' });
         if (type === 'task') setForm(editData ? { ...editData } : { name: '', description: '', default_duration_days: '' });
         if (type === 'doc') setForm({ document_id: '' });
-        if (type === 'doc_create') setForm({ name: '', file_url: '', description: '' });
+        if (type === 'doc_create') setForm(editData ? { ...editData } : { name: '', file_url: '', description: '' });
     };
 
     const closeModal = () => setModalConfig(null);
@@ -134,8 +134,13 @@ export default function ServicesPage() {
                 await api.post(`/services/tasks/${parentId}/documents`, form);
                 loadServiceDetails(selectedServiceId);
             } else if (type === 'doc_create') {
-                await api.post(`/services/reference_documents`, { ...form, service_id: selectedServiceId });
+                if (modalConfig.editData) {
+                    await api.put(`/services/reference_documents/${modalConfig.editData.id}`, form);
+                } else {
+                    await api.post(`/services/reference_documents`, { ...form, service_id: selectedServiceId });
+                }
                 loadDocs(selectedServiceId);
+                loadServiceDetails(selectedServiceId); // refresh names on task pills
             }
             closeModal();
         } catch (err) {
@@ -145,11 +150,19 @@ export default function ServicesPage() {
 
     const handleDelete = async (type, id, parentId = null) => {
         // Only run the generic confirm if we aren't about to run the deep sync confirm
-        if (type === 'doc_create') {
+        if (type !== 'service' && type !== 'doc_system' && type !== 'doc' && type !== 'step' && type !== 'task') {
              if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return;
         }
 
-        const isConfirmed = await checkProjectsAndConfirm(`delete this ${type}`);
+        if (type === 'doc') {
+            if (!window.confirm('Are you sure you want to unlink this document from this task?')) return;
+        }
+
+        if (type === 'doc_system') {
+            if (!window.confirm('Are you sure you want to permanently delete this document from the system? It will automatically be removed from all associated tasks. (Deep Sync Warning follows)')) return;
+        }
+
+        const isConfirmed = await checkProjectsAndConfirm(`delete this ${type === 'doc_system' ? 'document' : type}`);
         if (!isConfirmed) return;
 
         try {
@@ -165,6 +178,10 @@ export default function ServicesPage() {
                 loadServiceDetails(selectedServiceId);
             } else if (type === 'doc') {
                 await api.delete(`/services/tasks/${parentId}/documents/${id}`);
+                loadServiceDetails(selectedServiceId);
+            } else if (type === 'doc_system') {
+                await api.delete(`/services/reference_documents/${id}`);
+                loadDocs(selectedServiceId);
                 loadServiceDetails(selectedServiceId);
             }
         } catch(e) {
@@ -262,7 +279,11 @@ export default function ServicesPage() {
                                                                     {task.documents.map(doc => (
                                                                         <div key={doc.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(37, 99, 235, 0.1)', color: 'var(--primary)', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 500 }}>
                                                                             <HiOutlinePaperClip /> {doc.name}
-                                                                            <HiOutlineX style={{ cursor: 'pointer', marginLeft: '4px' }} onClick={() => handleDelete('doc', doc.id, task.id)} />
+                                                                            <div style={{ display: 'flex', gap: '4px', marginLeft: '4px', borderLeft: '1px solid rgba(37,99,235,0.2)', paddingLeft: '4px' }}>
+                                                                                <HiOutlinePencil title="Edit Global Document" style={{ cursor: 'pointer' }} onClick={() => openModal('doc_create', null, doc)} />
+                                                                                <HiOutlineTrash title="Permanently Delete Document" style={{ cursor: 'pointer' }} onClick={() => handleDelete('doc_system', doc.id)} />
+                                                                                <HiOutlineX title="Unlink from this Task" style={{ cursor: 'pointer', color: 'var(--danger)' }} onClick={() => handleDelete('doc', doc.id, task.id)} />
+                                                                            </div>
                                                                         </div>
                                                                     ))}
                                                                 </div>
@@ -302,7 +323,7 @@ export default function ServicesPage() {
                                 {modalConfig.type === 'step' && (modalConfig.editData ? "Edit Step" : "Add Step")}
                                 {modalConfig.type === 'task' && (modalConfig.editData ? "Edit Task" : "Add Task")}
                                 {modalConfig.type === 'doc' && "Attach Document"}
-                                {modalConfig.type === 'doc_create' && "Upload New Document"}
+                                {modalConfig.type === 'doc_create' && (modalConfig.editData ? "Edit Reference Document" : "Upload New Document")}
                             </h2>
                             <button className="btn-icon" onClick={closeModal}><HiOutlineX /></button>
                         </div>
