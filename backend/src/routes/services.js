@@ -248,7 +248,12 @@ router.delete('/tasks/:taskId', authenticate, async (req, res) => {
 // GET /api/services/reference_documents/all
 router.get('/reference_documents/all', authenticate, async (req, res) => {
     try {
-        const docs = await db('reference_documents').orderBy('name');
+        const { service_id } = req.query;
+        let query = db('reference_documents');
+        if (service_id) {
+            query = query.where({ service_id });
+        }
+        const docs = await query.orderBy('name');
         res.json(docs);
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch documents.' });
@@ -258,10 +263,10 @@ router.get('/reference_documents/all', authenticate, async (req, res) => {
 // POST /api/services/reference_documents
 router.post('/reference_documents', authenticate, async (req, res) => {
     try {
-        const { name, file_url, description } = req.body;
-        if (!name || !file_url) return res.status(400).json({ error: 'Name and file_url are required.' });
+        const { name, file_url, description, service_id } = req.body;
+        if (!name || !file_url || !service_id) return res.status(400).json({ error: 'Name, file_url, and service_id are required.' });
 
-        const [doc] = await db('reference_documents').insert({ name, file_url, description }).returning('*');
+        const [doc] = await db('reference_documents').insert({ name, file_url, description, service_id }).returning('*');
         res.status(201).json(doc);
     } catch (err) {
         res.status(500).json({ error: 'Failed to create reference document.' });

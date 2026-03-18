@@ -26,15 +26,12 @@ export default function ServicesPage() {
     const [loading, setLoading] = useState(true);
 
     const fetchData = async () => {
+        setLoading(true);
         try {
-            const [sRes, dRes] = await Promise.all([
-                api.get('/services'),
-                api.get('/services/reference_documents/all')
-            ]);
-            setServices(sRes.data);
-            setDocs(dRes.data);
-            if (!selectedServiceId && sRes.data.length > 0) {
-                setSelectedServiceId(sRes.data[0].id);
+            const res = await api.get('/services');
+            setServices(res.data);
+            if (!selectedServiceId && res.data.length > 0) {
+                setSelectedServiceId(res.data[0].id);
             }
         } catch (e) {
             console.error(e);
@@ -51,6 +48,15 @@ export default function ServicesPage() {
         }
     };
 
+    const loadDocs = async (id) => {
+        try {
+            const res = await api.get(`/services/reference_documents/all?service_id=${id}`);
+            setDocs(res.data);
+        } catch (e) {
+            console.error("Failed to load documents");
+        }
+    };
+
     useEffect(() => {
         fetchData();
     }, []);
@@ -58,6 +64,7 @@ export default function ServicesPage() {
     useEffect(() => {
         if (selectedServiceId) {
             loadServiceDetails(selectedServiceId);
+            loadDocs(selectedServiceId);
         }
     }, [selectedServiceId]);
 
@@ -106,8 +113,8 @@ export default function ServicesPage() {
                 await api.post(`/services/tasks/${parentId}/documents`, form);
                 loadServiceDetails(selectedServiceId);
             } else if (type === 'doc_create') {
-                await api.post(`/services/reference_documents`, form);
-                fetchData(); // reload docs list
+                await api.post(`/services/reference_documents`, { ...form, service_id: selectedServiceId });
+                loadDocs(selectedServiceId); // reload scoped docs list
             }
             closeModal();
         } catch (err) {
