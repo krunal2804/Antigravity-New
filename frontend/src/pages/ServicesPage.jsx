@@ -119,8 +119,10 @@ export default function ServicesPage() {
             }
 
             if (type === 'service') {
-                if (modalConfig.editData) await api.put(`/services/${modalConfig.editData.id}`, form);
-                else {
+                if (modalConfig.editData) {
+                    await api.put(`/services/${modalConfig.editData.id}`, form);
+                    loadServiceDetails(modalConfig.editData.id);
+                } else {
                     const res = await api.post('/services', form);
                     setSelectedServiceId(res.data.id);
                 }
@@ -228,11 +230,11 @@ export default function ServicesPage() {
                 {serviceDetails ? (
                     <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
-                            <div>
+                            <div style={{ flex: 1, paddingRight: '24px' }}>
                                 <h1 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0' }}>{serviceDetails.name}</h1>
-                                <p style={{ color: 'var(--text-secondary)', margin: 0 }}>{serviceDetails.description}</p>
+                                <p style={{ color: 'var(--text-secondary)', margin: 0, wordBreak: 'break-word' }}>{serviceDetails.description}</p>
                             </div>
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                                 <button className="btn btn-secondary btn-sm" onClick={() => setShowDocumentManager(true)}>
                                     <HiOutlineDocumentText /> Manage Standard References
                                 </button>
