@@ -230,20 +230,22 @@ export default function ServicesPage() {
                 {serviceDetails ? (
                     <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
                         <div style={{ marginBottom: '32px' }}>
-                            <div style={{ marginBottom: '20px' }}>
-                                <h1 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0' }}>{serviceDetails.name}</h1>
-                                <p style={{ color: 'var(--text-secondary)', margin: 0, wordBreak: 'break-word', lineHeight: '1.5' }}>{serviceDetails.description}</p>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                                <h1 style={{ fontSize: '24px', fontWeight: 800, margin: 0, flex: 1, paddingRight: '24px' }}>{serviceDetails.name}</h1>
+                                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                                    <button className="btn btn-secondary btn-sm" onClick={() => openModal('service', null, serviceDetails)}>
+                                        <HiOutlinePencil /> Edit Service
+                                    </button>
+                                    <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleDelete('service', serviceDetails.id)}><HiOutlineTrash /> Delete Service</button>
+                                    <button className="btn btn-primary btn-sm" onClick={() => openModal('step', serviceDetails.id)}>
+                                        <HiOutlinePlus /> Add Step
+                                    </button>
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <div>
+                                <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px 0', wordBreak: 'break-word', lineHeight: '1.5' }}>{serviceDetails.description}</p>
                                 <button className="btn btn-secondary btn-sm" onClick={() => setShowDocumentManager(true)}>
                                     <HiOutlineDocumentText /> Manage Standard References
-                                </button>
-                                <button className="btn btn-secondary btn-sm" onClick={() => openModal('service', null, serviceDetails)}>
-                                    <HiOutlinePencil /> Edit Service
-                                </button>
-                                <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleDelete('service', serviceDetails.id)}><HiOutlineTrash /> Delete Service</button>
-                                <button className="btn btn-primary btn-sm" onClick={() => openModal('step', serviceDetails.id)}>
-                                    <HiOutlinePlus /> Add Step
                                 </button>
                             </div>
                         </div>
