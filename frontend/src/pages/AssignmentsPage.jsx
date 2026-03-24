@@ -183,52 +183,32 @@ export default function AssignmentsPage() {
                         </div>
                         <form onSubmit={handleSubmit}>
                             <div className="modal-body">
-                                {/* Section 1: General Details */}
-                                <div style={{ marginBottom: '32px' }}>
-                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>General Details</h3>
-                                    <div className="form-group">
-                                        <label>Client Name *</label>
-                                        <select className="form-control" value={form.organization_id} onChange={(e) => setForm({ ...form, organization_id: e.target.value })} required>
+                                {/* Top Layout */}
+                                <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                        <label style={{ margin: 0, whiteSpace: 'nowrap' }}>1. Client Name *</label>
+                                        <select className="form-control" style={{ flex: 1, margin: 0 }} value={form.organization_id} onChange={(e) => setForm({ ...form, organization_id: e.target.value })} required>
                                             <option value="">Select Client</option>
                                             {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                                         </select>
                                     </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Assignment Name *</label>
-                                            <input className="form-control" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="e.g. TATA-Gujarat" />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Site Address (For Consulting Intervention)</label>
-                                            <input className="form-control" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="City or Plant Name" />
-                                        </div>
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Description</label>
-                                        <input className="form-control" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Brief description" />
-                                    </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Start Date</label>
-                                            <input type="date" className="form-control" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>End Date</label>
-                                            <input type="date" className="form-control" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
-                                        </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                        <label style={{ margin: 0, whiteSpace: 'nowrap' }}>Assignment Name *</label>
+                                        <input className="form-control" style={{ flex: 1, margin: 0 }} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="e.g. TATA-Gujarat" />
                                     </div>
                                 </div>
 
-                                {/* Section 2: Team Contacts */}
-                                <div style={{ marginBottom: '32px' }}>
-                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Team Contacts</h3>
-                                    <div className="form-group">
-                                        <label>Point of Contact - Faber Infinite</label>
-                                        <select className="form-control" value={form.faber_poc_id} onChange={(e) => setForm({ ...form, faber_poc_id: e.target.value })}>
-                                            <option value="">Select Faber Contact</option>
-                                            {faberUsers.map(u => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
-                                        </select>
-                                    </div>
+                                <div className="form-group" style={{ marginBottom: '20px' }}>
+                                    <label>2. Site Address (For Consulting Intervention)</label>
+                                    <input className="form-control" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="City or Plant Name" />
+                                </div>
+
+                                <div className="form-group" style={{ marginBottom: '32px' }}>
+                                    <label>3. Point of Contact - Faber Infinite</label>
+                                    <select className="form-control" value={form.faber_poc_id} onChange={(e) => setForm({ ...form, faber_poc_id: e.target.value })}>
+                                        <option value="">Select Faber Contact</option>
+                                        {faberUsers.map(u => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+                                    </select>
                                 </div>
 
                                 {/* Section 3: Top Management Details */}
