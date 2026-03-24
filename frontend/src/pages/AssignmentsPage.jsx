@@ -184,18 +184,16 @@ export default function AssignmentsPage() {
                         <form onSubmit={handleSubmit}>
                             <div className="modal-body">
                                 {/* Top Layout */}
-                                <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                        <label style={{ margin: 0, whiteSpace: 'nowrap' }}>1. Client Name *</label>
-                                        <select className="form-control" style={{ flex: 1, margin: 0 }} value={form.organization_id} onChange={(e) => setForm({ ...form, organization_id: e.target.value })} required>
-                                            <option value="">Select Client</option>
-                                            {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                        <label style={{ margin: 0, whiteSpace: 'nowrap' }}>Assignment Name *</label>
-                                        <input className="form-control" style={{ flex: 1, margin: 0 }} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="e.g. TATA-Gujarat" />
-                                    </div>
+                                <div className="form-group">
+                                    <label>1. Client Name *</label>
+                                    <select className="form-control" value={form.organization_id} onChange={(e) => setForm({ ...form, organization_id: e.target.value })} required>
+                                        <option value="">Select Client</option>
+                                        {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Assignment Name *</label>
+                                    <input className="form-control" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="e.g. TATA-Gujarat" />
                                 </div>
 
                                 <div className="form-group" style={{ marginBottom: '20px' }}>
