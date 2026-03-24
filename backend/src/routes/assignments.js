@@ -75,12 +75,21 @@ router.get('/:id', authenticate, async (req, res) => {
 // POST /api/assignments
 router.post('/', authenticate, authorize('assignments', 'can_create'), async (req, res) => {
     try {
-        const { organization_id, name, location, description, start_date, end_date, projects } = req.body;
+        const { 
+            organization_id, name, location, description, start_date, end_date, projects,
+            faber_poc_id, top_management_name, top_management_designation, top_management_mobile, top_management_email,
+            client_poc_name, client_poc_designation, client_poc_mobile, client_poc_email
+        } = req.body;
         if (!organization_id || !name) return res.status(400).json({ error: 'organization_id and name are required.' });
 
         const assignment = await db.transaction(async (trx) => {
             const [newAssignment] = await trx('assignments')
-                .insert({ organization_id, name, location, description, start_date, end_date })
+                .insert({ 
+                    organization_id, name, location, description, start_date, end_date,
+                    faber_poc_id: faber_poc_id || null,
+                    top_management_name, top_management_designation, top_management_mobile, top_management_email,
+                    client_poc_name, client_poc_designation, client_poc_mobile, client_poc_email
+                })
                 .returning('*');
 
             if (projects && Array.isArray(projects) && projects.length > 0) {
@@ -171,10 +180,20 @@ router.post('/', authenticate, authorize('assignments', 'can_create'), async (re
 // PUT /api/assignments/:id
 router.put('/:id', authenticate, authorize('assignments', 'can_edit'), async (req, res) => {
     try {
-        const { name, location, description, start_date, end_date, status } = req.body;
+        const { 
+            name, location, description, start_date, end_date, status,
+            faber_poc_id, top_management_name, top_management_designation, top_management_mobile, top_management_email,
+            client_poc_name, client_poc_designation, client_poc_mobile, client_poc_email
+        } = req.body;
         const [assignment] = await db('assignments')
             .where({ id: req.params.id })
-            .update({ name, location, description, start_date, end_date, status, updated_at: db.fn.now() })
+            .update({ 
+                name, location, description, start_date, end_date, status, 
+                faber_poc_id: faber_poc_id || null,
+                top_management_name, top_management_designation, top_management_mobile, top_management_email,
+                client_poc_name, client_poc_designation, client_poc_mobile, client_poc_email,
+                updated_at: db.fn.now() 
+            })
             .returning('*');
         if (!assignment) return res.status(404).json({ error: 'Assignment not found.' });
         res.json(assignment);

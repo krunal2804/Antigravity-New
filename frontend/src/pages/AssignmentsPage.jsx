@@ -12,21 +12,27 @@ export default function AssignmentsPage() {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editItem, setEditItem] = useState(null);
+    const [faberUsers, setFaberUsers] = useState([]);
     const [form, setForm] = useState({ 
         organization_id: '', name: '', location: '', description: '', start_date: '', end_date: '',
+        faber_poc_id: '',
+        top_management_name: '', top_management_designation: '', top_management_mobile: '', top_management_email: '',
+        client_poc_name: '', client_poc_designation: '', client_poc_mobile: '', client_poc_email: '',
         projects: [] 
     });
 
     const fetchData = async () => {
         try {
-            const [aRes, oRes, sRes] = await Promise.all([
+            const [aRes, oRes, sRes, uRes] = await Promise.all([
                 api.get('/assignments'), 
                 api.get('/organizations'),
-                api.get('/services')
+                api.get('/services'),
+                api.get('/users?role_side=faber')
             ]);
             setAssignments(aRes.data);
             setOrgs(oRes.data);
             setServices(sRes.data);
+            setFaberUsers(uRes.data);
         } catch (e) { console.error(e); }
         setLoading(false);
     };
@@ -39,6 +45,9 @@ export default function AssignmentsPage() {
         setEditItem(null); 
         setForm({ 
             organization_id: orgs[0]?.id || '', name: '', location: '', description: '', start_date: '', end_date: '',
+            faber_poc_id: '',
+            top_management_name: '', top_management_designation: '', top_management_mobile: '', top_management_email: '',
+            client_poc_name: '', client_poc_designation: '', client_poc_mobile: '', client_poc_email: '',
             projects: [getEmptyProject()]
         }); 
         setShowModal(true); 
@@ -49,6 +58,9 @@ export default function AssignmentsPage() {
         setEditItem(a); 
         setForm({ 
             organization_id: a.organization_id, name: a.name, location: a.location || '', description: a.description || '', start_date: a.start_date?.split('T')[0] || '', end_date: a.end_date?.split('T')[0] || '',
+            faber_poc_id: a.faber_poc_id || '',
+            top_management_name: a.top_management_name || '', top_management_designation: a.top_management_designation || '', top_management_mobile: a.top_management_mobile || '', top_management_email: a.top_management_email || '',
+            client_poc_name: a.client_poc_name || '', client_poc_designation: a.client_poc_designation || '', client_poc_mobile: a.client_poc_mobile || '', client_poc_email: a.client_poc_email || '',
             projects: [] // Hide project form on edit
         }); 
         setShowModal(true); 
@@ -171,41 +183,107 @@ export default function AssignmentsPage() {
                         </div>
                         <form onSubmit={handleSubmit}>
                             <div className="modal-body">
-                                <div className="form-group">
-                                    <label>Organization *</label>
-                                    <select className="form-control" value={form.organization_id} onChange={(e) => setForm({ ...form, organization_id: e.target.value })} required>
-                                        <option value="">Select Organization</option>
-                                        {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="form-row">
+                                {/* Section 1: General Details */}
+                                <div style={{ marginBottom: '32px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>General Details</h3>
                                     <div className="form-group">
-                                        <label>Assignment Name *</label>
-                                        <input className="form-control" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="e.g. TATA-Gujarat" />
+                                        <label>Client Name *</label>
+                                        <select className="form-control" value={form.organization_id} onChange={(e) => setForm({ ...form, organization_id: e.target.value })} required>
+                                            <option value="">Select Client</option>
+                                            {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Assignment Name *</label>
+                                            <input className="form-control" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="e.g. TATA-Gujarat" />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Site Address (For Consulting Intervention)</label>
+                                            <input className="form-control" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="City or Plant Name" />
+                                        </div>
                                     </div>
                                     <div className="form-group">
-                                        <label>Location</label>
-                                        <input className="form-control" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="City or Plant Name" />
+                                        <label>Description</label>
+                                        <input className="form-control" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Brief description" />
+                                    </div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Start Date</label>
+                                            <input type="date" className="form-control" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>End Date</label>
+                                            <input type="date" className="form-control" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="form-group">
-                                    <label>Description</label>
-                                    <input className="form-control" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Brief description" />
-                                </div>
-                                <div className="form-row">
+
+                                {/* Section 2: Team Contacts */}
+                                <div style={{ marginBottom: '32px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Team Contacts</h3>
                                     <div className="form-group">
-                                        <label>Start Date</label>
-                                        <input type="date" className="form-control" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+                                        <label>Point of Contact - Faber Infinite</label>
+                                        <select className="form-control" value={form.faber_poc_id} onChange={(e) => setForm({ ...form, faber_poc_id: e.target.value })}>
+                                            <option value="">Select Faber Contact</option>
+                                            {faberUsers.map(u => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+                                        </select>
                                     </div>
-                                    <div className="form-group">
-                                        <label>End Date</label>
-                                        <input type="date" className="form-control" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+                                </div>
+
+                                {/* Section 3: Top Management Details */}
+                                <div style={{ marginBottom: '32px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Top Management Details</h3>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Name</label>
+                                            <input className="form-control" value={form.top_management_name} onChange={(e) => setForm({ ...form, top_management_name: e.target.value })} placeholder="Name" />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Designation</label>
+                                            <input className="form-control" value={form.top_management_designation} onChange={(e) => setForm({ ...form, top_management_designation: e.target.value })} placeholder="Designation" />
+                                        </div>
+                                    </div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Mobile/ Board Line No.</label>
+                                            <input className="form-control" value={form.top_management_mobile} onChange={(e) => setForm({ ...form, top_management_mobile: e.target.value })} placeholder="Phone Number" />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>E-mail ID</label>
+                                            <input type="email" className="form-control" value={form.top_management_email} onChange={(e) => setForm({ ...form, top_management_email: e.target.value })} placeholder="Email Address" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Section 4: Point of Contact - Client */}
+                                <div style={{ marginBottom: '32px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Point of Contact - Client</h3>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Name</label>
+                                            <input className="form-control" value={form.client_poc_name} onChange={(e) => setForm({ ...form, client_poc_name: e.target.value })} placeholder="Name" />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Designation</label>
+                                            <input className="form-control" value={form.client_poc_designation} onChange={(e) => setForm({ ...form, client_poc_designation: e.target.value })} placeholder="Designation" />
+                                        </div>
+                                    </div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Mobile/ Board Line No.</label>
+                                            <input className="form-control" value={form.client_poc_mobile} onChange={(e) => setForm({ ...form, client_poc_mobile: e.target.value })} placeholder="Phone Number" />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>E-mail ID</label>
+                                            <input type="email" className="form-control" value={form.client_poc_email} onChange={(e) => setForm({ ...form, client_poc_email: e.target.value })} placeholder="Email Address" />
+                                        </div>
                                     </div>
                                 </div>
 
                                 {!editItem && (
-                                    <div style={{ marginTop: '32px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
-                                        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Projects</h3>
+                                    <div>
+                                        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Projects</h3>
                                         {form.projects.map((proj, idx) => (
                                             <div key={idx} className="project-form-card">
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
