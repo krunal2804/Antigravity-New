@@ -65,7 +65,7 @@ export default function Layout() {
 
             <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
                 <div className="sidebar-brand">
-                    <div className="logo">PG</div>
+                    <img src="/logo.png" alt="Logo" className="logo" style={{ width: '36px', height: '36px', background: 'transparent', color: 'transparent', flexShrink: 0, objectFit: 'contain', padding: 0, borderRadius: 0, boxShadow: 'none' }} />
                     <div>
                         <h2>GovernX</h2>
                         <span>Project Governance</span>
