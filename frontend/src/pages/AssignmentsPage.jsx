@@ -31,7 +31,7 @@ export default function AssignmentsPage() {
                 api.get('/assignments'), 
                 api.get('/organizations'),
                 api.get('/services'),
-                api.get('/users?role_side=faber')
+                api.get('/users?role_side=consulting')
             ]);
             setAssignments(aRes.data);
             setOrgs(oRes.data);
