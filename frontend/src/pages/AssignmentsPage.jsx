@@ -212,24 +212,26 @@ export default function AssignmentsPage() {
                                 {/* Section 3: Top Management Details */}
                                 <div style={{ marginBottom: '32px' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Top Management Details</h3>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Name</label>
-                                            <input className="form-control" value={form.top_management_name} onChange={(e) => setForm({ ...form, top_management_name: e.target.value })} placeholder="Name" />
+                                    <div className="project-form-card">
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label>Name</label>
+                                                <input className="form-control" value={form.top_management_name} onChange={(e) => setForm({ ...form, top_management_name: e.target.value })} placeholder="Name" />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Designation</label>
+                                                <input className="form-control" value={form.top_management_designation} onChange={(e) => setForm({ ...form, top_management_designation: e.target.value })} placeholder="Designation" />
+                                            </div>
                                         </div>
-                                        <div className="form-group">
-                                            <label>Designation</label>
-                                            <input className="form-control" value={form.top_management_designation} onChange={(e) => setForm({ ...form, top_management_designation: e.target.value })} placeholder="Designation" />
-                                        </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Mobile/ Board Line No.</label>
-                                            <input className="form-control" value={form.top_management_mobile} onChange={(e) => setForm({ ...form, top_management_mobile: e.target.value })} placeholder="Phone Number" />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>E-mail ID</label>
-                                            <input type="email" className="form-control" value={form.top_management_email} onChange={(e) => setForm({ ...form, top_management_email: e.target.value })} placeholder="Email Address" />
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label>Mobile/ Board Line No.</label>
+                                                <input className="form-control" value={form.top_management_mobile} onChange={(e) => setForm({ ...form, top_management_mobile: e.target.value })} placeholder="Phone Number" />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>E-mail ID</label>
+                                                <input type="email" className="form-control" value={form.top_management_email} onChange={(e) => setForm({ ...form, top_management_email: e.target.value })} placeholder="Email Address" />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -237,24 +239,26 @@ export default function AssignmentsPage() {
                                 {/* Section 4: Point of Contact - Client */}
                                 <div style={{ marginBottom: '32px' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Point of Contact - Client</h3>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Name</label>
-                                            <input className="form-control" value={form.client_poc_name} onChange={(e) => setForm({ ...form, client_poc_name: e.target.value })} placeholder="Name" />
+                                    <div className="project-form-card">
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label>Name</label>
+                                                <input className="form-control" value={form.client_poc_name} onChange={(e) => setForm({ ...form, client_poc_name: e.target.value })} placeholder="Name" />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Designation</label>
+                                                <input className="form-control" value={form.client_poc_designation} onChange={(e) => setForm({ ...form, client_poc_designation: e.target.value })} placeholder="Designation" />
+                                            </div>
                                         </div>
-                                        <div className="form-group">
-                                            <label>Designation</label>
-                                            <input className="form-control" value={form.client_poc_designation} onChange={(e) => setForm({ ...form, client_poc_designation: e.target.value })} placeholder="Designation" />
-                                        </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Mobile/ Board Line No.</label>
-                                            <input className="form-control" value={form.client_poc_mobile} onChange={(e) => setForm({ ...form, client_poc_mobile: e.target.value })} placeholder="Phone Number" />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>E-mail ID</label>
-                                            <input type="email" className="form-control" value={form.client_poc_email} onChange={(e) => setForm({ ...form, client_poc_email: e.target.value })} placeholder="Email Address" />
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label>Mobile/ Board Line No.</label>
+                                                <input className="form-control" value={form.client_poc_mobile} onChange={(e) => setForm({ ...form, client_poc_mobile: e.target.value })} placeholder="Phone Number" />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>E-mail ID</label>
+                                                <input type="email" className="form-control" value={form.client_poc_email} onChange={(e) => setForm({ ...form, client_poc_email: e.target.value })} placeholder="Email Address" />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
