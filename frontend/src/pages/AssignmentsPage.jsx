@@ -211,8 +211,8 @@ export default function AssignmentsPage() {
 
                                 {/* Section 3: Top Management Details */}
                                 <div style={{ marginBottom: '32px' }}>
-                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Top Management Details</h3>
                                     <div className="project-form-card">
+                                        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Top Management Details</h3>
                                         <div className="form-row">
                                             <div className="form-group">
                                                 <label>Name</label>
@@ -238,8 +238,8 @@ export default function AssignmentsPage() {
 
                                 {/* Section 4: Point of Contact - Client */}
                                 <div style={{ marginBottom: '32px' }}>
-                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Point of Contact - Client</h3>
                                     <div className="project-form-card">
+                                        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Point of Contact - Client</h3>
                                         <div className="form-row">
                                             <div className="form-group">
                                                 <label>Name</label>
