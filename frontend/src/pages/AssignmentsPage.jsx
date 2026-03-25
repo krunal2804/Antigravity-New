@@ -289,14 +289,22 @@ export default function AssignmentsPage() {
                                                         </select>
                                                     </div>
                                                 </div>
+                                                <div className="form-group" style={{ marginBottom: '16px' }}>
+                                                    <label>Key Deliverables and Scope of Work</label>
+                                                    <textarea 
+                                                        className="form-control" 
+                                                        rows="2" 
+                                                        value={proj.description || ''} 
+                                                        onChange={(e) => handleProjectChange(idx, 'description', e.target.value)} 
+                                                        onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+                                                        style={{ resize: 'vertical', overflow: 'hidden' }}
+                                                        placeholder="Enter deliverables and scope..." 
+                                                    />
+                                                </div>
                                                 <div className="form-row">
                                                     <div className="form-group">
-                                                        <label>Start Date</label>
+                                                        <label>Tentative Flagoff Date</label>
                                                         <input type="date" className="form-control" value={proj.start_date || ''} onChange={(e) => handleProjectChange(idx, 'start_date', e.target.value)} />
-                                                    </div>
-                                                    <div className="form-group">
-                                                        <label>End Date</label>
-                                                        <input type="date" className="form-control" value={proj.end_date || ''} onChange={(e) => handleProjectChange(idx, 'end_date', e.target.value)} />
                                                     </div>
                                                 </div>
                                             </div>
