@@ -18,6 +18,10 @@ export default function AssignmentsPage() {
         faber_poc_id: '',
         top_management_name: '', top_management_designation: '', top_management_mobile: '', top_management_email: '',
         client_poc_name: '', client_poc_designation: '', client_poc_mobile: '', client_poc_email: '',
+        schedule_type: 'month',
+        consulting_team: [],    // [{ user_id, title }]
+        period_count: 1,
+        consulting_grid: [[]],  // grid[periodIndex][teamIndex] = days
         projects: [] 
     });
 
@@ -48,6 +52,10 @@ export default function AssignmentsPage() {
             faber_poc_id: '',
             top_management_name: '', top_management_designation: '', top_management_mobile: '', top_management_email: '',
             client_poc_name: '', client_poc_designation: '', client_poc_mobile: '', client_poc_email: '',
+            schedule_type: 'month',
+            consulting_team: [],
+            period_count: 1,
+            consulting_grid: [[]],
             projects: [getEmptyProject()]
         }); 
         setShowModal(true); 
@@ -61,6 +69,10 @@ export default function AssignmentsPage() {
             faber_poc_id: a.faber_poc_id || '',
             top_management_name: a.top_management_name || '', top_management_designation: a.top_management_designation || '', top_management_mobile: a.top_management_mobile || '', top_management_email: a.top_management_email || '',
             client_poc_name: a.client_poc_name || '', client_poc_designation: a.client_poc_designation || '', client_poc_mobile: a.client_poc_mobile || '', client_poc_email: a.client_poc_email || '',
+            schedule_type: a.schedule_type || 'month',
+            consulting_team: [],
+            period_count: 1,
+            consulting_grid: [[]],
             projects: [] // Hide project form on edit
         }); 
         setShowModal(true); 
@@ -78,13 +90,73 @@ export default function AssignmentsPage() {
         setForm({ ...form, projects: newProjects });
     };
 
+    // ─── Consulting Days helpers ───
+    const handleToggleTeamMember = (userId) => {
+        const exists = form.consulting_team.find(t => String(t.user_id) === String(userId));
+        let newTeam;
+        let newGrid;
+        if (exists) {
+            const idx = form.consulting_team.findIndex(t => String(t.user_id) === String(userId));
+            newTeam = form.consulting_team.filter((_, i) => i !== idx);
+            newGrid = form.consulting_grid.map(row => row.filter((_, i) => i !== idx));
+        } else {
+            const user = faberUsers.find(u => String(u.id) === String(userId));
+            newTeam = [...form.consulting_team, { user_id: userId, title: user ? `${user.first_name} ${user.last_name}` : '' }];
+            newGrid = form.consulting_grid.map(row => [...row, 0]);
+        }
+        setForm({ ...form, consulting_team: newTeam, consulting_grid: newGrid });
+    };
+
+    const handleTeamTitleChange = (idx, title) => {
+        const newTeam = [...form.consulting_team];
+        newTeam[idx] = { ...newTeam[idx], title };
+        setForm({ ...form, consulting_team: newTeam });
+    };
+
+    const handlePeriodCountChange = (count) => {
+        const c = Math.max(1, parseInt(count) || 1);
+        const teamLen = form.consulting_team.length;
+        const newGrid = Array.from({ length: c }, (_, pi) =>
+            form.consulting_grid[pi] ? form.consulting_grid[pi].slice(0, teamLen).concat(Array(Math.max(0, teamLen - (form.consulting_grid[pi]?.length || 0))).fill(0)) : Array(teamLen).fill(0)
+        );
+        setForm({ ...form, period_count: c, consulting_grid: newGrid });
+    };
+
+    const handleGridDayChange = (periodIdx, teamIdx, value) => {
+        const newGrid = form.consulting_grid.map(row => [...row]);
+        newGrid[periodIdx][teamIdx] = parseInt(value) || 0;
+        setForm({ ...form, consulting_grid: newGrid });
+    };
+
+    const getPeriodLabel = (idx) => {
+        const prefix = form.schedule_type === 'workshop' ? 'Workshop' : 'Month';
+        return `${prefix} ${idx + 1}`;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            // Flatten consulting days grid into API format
+            const team_members = form.consulting_team.map(t => ({ user_id: t.user_id, title: t.title }));
+            const consulting_days = [];
+            form.consulting_grid.forEach((row, pi) => {
+                row.forEach((days, ti) => {
+                    if (form.consulting_team[ti]) {
+                        consulting_days.push({
+                            user_id: form.consulting_team[ti].user_id,
+                            period_label: getPeriodLabel(pi),
+                            period_index: pi,
+                            days
+                        });
+                    }
+                });
+            });
+            const payload = { ...form, team_members, consulting_days };
+
             if (editItem) {
-                await api.put(`/assignments/${editItem.id}`, form);
+                await api.put(`/assignments/${editItem.id}`, payload);
             } else {
-                await api.post('/assignments', form);
+                await api.post('/assignments', payload);
             }
             setShowModal(false);
             fetchData();
@@ -260,6 +332,147 @@ export default function AssignmentsPage() {
                                                 <input type="email" className="form-control" value={form.client_poc_email} onChange={(e) => setForm({ ...form, client_poc_email: e.target.value })} placeholder="Email Address" />
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Section 5: Consulting Days */}
+                                <div style={{ marginBottom: '32px' }}>
+                                    <div className="project-form-card">
+                                        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Consulting Days</h3>
+
+                                        {/* Schedule Type Toggle */}
+                                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                                            <label>Schedule Type</label>
+                                            <div style={{ display: 'flex', gap: '16px', marginTop: '6px' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: 400 }}>
+                                                    <input type="radio" name="schedule_type" value="month" checked={form.schedule_type === 'month'} onChange={() => setForm({ ...form, schedule_type: 'month' })} />
+                                                    Month Wise
+                                                </label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: 400 }}>
+                                                    <input type="radio" name="schedule_type" value="workshop" checked={form.schedule_type === 'workshop'} onChange={() => setForm({ ...form, schedule_type: 'workshop' })} />
+                                                    Workshop Wise
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {/* Number of Periods */}
+                                        <div className="form-group" style={{ marginBottom: '16px', maxWidth: '200px' }}>
+                                            <label>Number of {form.schedule_type === 'workshop' ? 'Workshops' : 'Months'}</label>
+                                            <input type="number" className="form-control" min="1" value={form.period_count} onChange={(e) => handlePeriodCountChange(e.target.value)} />
+                                        </div>
+
+                                        {/* Team Member Selector */}
+                                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                                            <label>Select Team Members</label>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
+                                                {faberUsers.map(u => {
+                                                    const selected = form.consulting_team.some(t => String(t.user_id) === String(u.id));
+                                                    return (
+                                                        <button
+                                                            key={u.id}
+                                                            type="button"
+                                                            onClick={() => handleToggleTeamMember(u.id)}
+                                                            style={{
+                                                                padding: '6px 14px',
+                                                                borderRadius: '20px',
+                                                                border: selected ? '2px solid var(--primary)' : '1px solid var(--border)',
+                                                                background: selected ? 'var(--primary-light, rgba(59,130,246,0.1))' : 'var(--bg-secondary)',
+                                                                color: selected ? 'var(--primary)' : 'var(--text-secondary)',
+                                                                fontWeight: selected ? 600 : 400,
+                                                                cursor: 'pointer',
+                                                                fontSize: '13px',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                        >
+                                                            {u.first_name} {u.last_name}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Title inputs for selected members */}
+                                        {form.consulting_team.length > 0 && (
+                                            <div style={{ marginBottom: '16px' }}>
+                                                <label style={{ marginBottom: '8px', display: 'block' }}>Team Titles</label>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                                                    {form.consulting_team.map((member, idx) => {
+                                                        const user = faberUsers.find(u => String(u.id) === String(member.user_id));
+                                                        return (
+                                                            <div key={member.user_id} style={{ flex: '1 1 200px', minWidth: '180px' }}>
+                                                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{user ? `${user.first_name} ${user.last_name}` : 'User'}</div>
+                                                                <input className="form-control" value={member.title} onChange={(e) => handleTeamTitleChange(idx, e.target.value)} placeholder="e.g. Industrial Engineer" />
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Consulting Days Grid */}
+                                        {form.consulting_team.length > 0 && form.period_count > 0 && (
+                                            <div style={{ overflowX: 'auto', marginTop: '16px' }}>
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                                    <thead>
+                                                        <tr style={{ background: 'var(--bg-secondary)' }}>
+                                                            <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '2px solid var(--border)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                                                {form.schedule_type === 'workshop' ? 'Workshop' : 'Month'}
+                                                            </th>
+                                                            {form.consulting_team.map((member, ti) => (
+                                                                <th key={ti} style={{ padding: '10px 12px', textAlign: 'center', borderBottom: '2px solid var(--border)', fontWeight: 600, minWidth: '100px' }}>
+                                                                    {member.title || `Member ${ti + 1}`}
+                                                                </th>
+                                                            ))}
+                                                            <th style={{ padding: '10px 12px', textAlign: 'center', borderBottom: '2px solid var(--border)', fontWeight: 700, background: 'var(--bg-secondary)' }}>
+                                                                Total
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {form.consulting_grid.map((row, pi) => (
+                                                            <tr key={pi} style={{ borderBottom: '1px solid var(--border)' }}>
+                                                                <td style={{ padding: '8px 12px', fontWeight: 500, whiteSpace: 'nowrap' }}>{getPeriodLabel(pi)}</td>
+                                                                {row.map((days, ti) => (
+                                                                    <td key={ti} style={{ padding: '4px 8px', textAlign: 'center' }}>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            value={days}
+                                                                            onChange={(e) => handleGridDayChange(pi, ti, e.target.value)}
+                                                                            style={{
+                                                                                width: '60px',
+                                                                                textAlign: 'center',
+                                                                                padding: '6px 4px',
+                                                                                border: '1px solid var(--border)',
+                                                                                borderRadius: '6px',
+                                                                                background: 'var(--bg-primary)',
+                                                                                color: 'var(--text-primary)',
+                                                                                fontSize: '13px'
+                                                                            }}
+                                                                        />
+                                                                    </td>
+                                                                ))}
+                                                                <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700 }}>
+                                                                    {row.reduce((sum, d) => sum + d, 0)}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                        {/* Totals Row */}
+                                                        <tr style={{ background: 'var(--bg-secondary)', fontWeight: 700 }}>
+                                                            <td style={{ padding: '10px 12px' }}>Total</td>
+                                                            {form.consulting_team.map((_, ti) => (
+                                                                <td key={ti} style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                                                    {form.consulting_grid.reduce((sum, row) => sum + (row[ti] || 0), 0)}
+                                                                </td>
+                                                            ))}
+                                                            <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 800, color: 'var(--primary)' }}>
+                                                                {form.consulting_grid.reduce((total, row) => total + row.reduce((s, d) => s + d, 0), 0)}
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

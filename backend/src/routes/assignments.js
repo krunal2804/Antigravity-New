@@ -78,7 +78,8 @@ router.post('/', authenticate, authorize('assignments', 'can_create'), async (re
         const { 
             organization_id, name, location, description, start_date, end_date, projects,
             faber_poc_id, top_management_name, top_management_designation, top_management_mobile, top_management_email,
-            client_poc_name, client_poc_designation, client_poc_mobile, client_poc_email
+            client_poc_name, client_poc_designation, client_poc_mobile, client_poc_email,
+            schedule_type, team_members, consulting_days
         } = req.body;
         if (!organization_id || !name) return res.status(400).json({ error: 'organization_id and name are required.' });
 
@@ -88,7 +89,8 @@ router.post('/', authenticate, authorize('assignments', 'can_create'), async (re
                     organization_id, name, location, description, start_date, end_date,
                     faber_poc_id: faber_poc_id || null,
                     top_management_name, top_management_designation, top_management_mobile, top_management_email,
-                    client_poc_name, client_poc_designation, client_poc_mobile, client_poc_email
+                    client_poc_name, client_poc_designation, client_poc_mobile, client_poc_email,
+                    schedule_type: schedule_type || 'month'
                 })
                 .returning('*');
 
@@ -167,6 +169,36 @@ router.post('/', authenticate, authorize('assignments', 'can_create'), async (re
                     });
                 }
             }
+
+            // Save consulting days team + grid
+            if (team_members && Array.isArray(team_members) && team_members.length > 0) {
+                for (const member of team_members) {
+                    const [tm] = await trx('assignment_team_members')
+                        .insert({
+                            assignment_id: newAssignment.id,
+                            user_id: member.user_id,
+                            title: member.title || null
+                        })
+                        .returning('*');
+
+                    // Insert days for this team member
+                    if (consulting_days && Array.isArray(consulting_days)) {
+                        const memberDays = consulting_days
+                            .filter(d => String(d.user_id) === String(member.user_id))
+                            .map(d => ({
+                                assignment_id: newAssignment.id,
+                                team_member_id: tm.id,
+                                period_label: d.period_label,
+                                period_index: d.period_index,
+                                days: d.days || 0
+                            }));
+                        if (memberDays.length > 0) {
+                            await trx('assignment_consulting_days').insert(memberDays);
+                        }
+                    }
+                }
+            }
+
             return newAssignment;
         });
 
@@ -183,21 +215,61 @@ router.put('/:id', authenticate, authorize('assignments', 'can_edit'), async (re
         const { 
             name, location, description, start_date, end_date, status,
             faber_poc_id, top_management_name, top_management_designation, top_management_mobile, top_management_email,
-            client_poc_name, client_poc_designation, client_poc_mobile, client_poc_email
+            client_poc_name, client_poc_designation, client_poc_mobile, client_poc_email,
+            schedule_type, team_members, consulting_days
         } = req.body;
-        const [assignment] = await db('assignments')
-            .where({ id: req.params.id })
-            .update({ 
-                name, location, description, start_date, end_date, status, 
-                faber_poc_id: faber_poc_id || null,
-                top_management_name, top_management_designation, top_management_mobile, top_management_email,
-                client_poc_name, client_poc_designation, client_poc_mobile, client_poc_email,
-                updated_at: db.fn.now() 
-            })
-            .returning('*');
-        if (!assignment) return res.status(404).json({ error: 'Assignment not found.' });
-        res.json(assignment);
+
+        const result = await db.transaction(async (trx) => {
+            const [assignment] = await trx('assignments')
+                .where({ id: req.params.id })
+                .update({ 
+                    name, location, description, start_date, end_date, status, 
+                    faber_poc_id: faber_poc_id || null,
+                    top_management_name, top_management_designation, top_management_mobile, top_management_email,
+                    client_poc_name, client_poc_designation, client_poc_mobile, client_poc_email,
+                    schedule_type: schedule_type || 'month',
+                    updated_at: trx.fn.now() 
+                })
+                .returning('*');
+            if (!assignment) return null;
+
+            // Replace team members and days
+            await trx('assignment_consulting_days').where({ assignment_id: req.params.id }).del();
+            await trx('assignment_team_members').where({ assignment_id: req.params.id }).del();
+
+            if (team_members && Array.isArray(team_members) && team_members.length > 0) {
+                for (const member of team_members) {
+                    const [tm] = await trx('assignment_team_members')
+                        .insert({
+                            assignment_id: assignment.id,
+                            user_id: member.user_id,
+                            title: member.title || null
+                        })
+                        .returning('*');
+
+                    if (consulting_days && Array.isArray(consulting_days)) {
+                        const memberDays = consulting_days
+                            .filter(d => String(d.user_id) === String(member.user_id))
+                            .map(d => ({
+                                assignment_id: assignment.id,
+                                team_member_id: tm.id,
+                                period_label: d.period_label,
+                                period_index: d.period_index,
+                                days: d.days || 0
+                            }));
+                        if (memberDays.length > 0) {
+                            await trx('assignment_consulting_days').insert(memberDays);
+                        }
+                    }
+                }
+            }
+            return assignment;
+        });
+
+        if (!result) return res.status(404).json({ error: 'Assignment not found.' });
+        res.json(result);
     } catch (err) {
+        console.error('Update assignment error:', err);
         res.status(500).json({ error: 'Failed to update assignment.' });
     }
 });
