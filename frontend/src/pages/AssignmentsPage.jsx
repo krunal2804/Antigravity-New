@@ -102,7 +102,7 @@ export default function AssignmentsPage() {
             newGrid = form.consulting_grid.map(row => row.filter((_, i) => i !== idx));
         } else {
             const user = faberUsers.find(u => String(u.id) === String(userId));
-            newTeam = [...form.consulting_team, { user_id: userId, title: user ? `${user.first_name} ${user.last_name}` : '' }];
+            newTeam = [...form.consulting_team, { user_id: userId, title: user?.role_name || '' }];
             newGrid = form.consulting_grid.map(row => [...row, 0]);
         }
         setForm({ ...form, consulting_team: newTeam, consulting_grid: newGrid });
@@ -407,9 +407,9 @@ export default function AssignmentsPage() {
                                                         const user = faberUsers.find(u => String(u.id) === String(member.user_id));
                                                         return (
                                                             <div key={member.user_id} style={{ flex: '1 1 200px', minWidth: '180px' }}>
-                                                                <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: '500' }}>
+                                                                <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500' }}>
                                                                     <span>{user ? `${user.first_name} ${user.last_name}` : 'User'}</span>
-                                                                    <button type="button" onClick={() => handleToggleTeamMember(member.user_id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 0, display: 'flex' }} title="Remove Team Member">
+                                                                    <button type="button" onClick={() => handleToggleTeamMember(member.user_id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px' }} title="Remove Team Member">
                                                                         <HiOutlineX size={16} />
                                                                     </button>
                                                                 </div>
