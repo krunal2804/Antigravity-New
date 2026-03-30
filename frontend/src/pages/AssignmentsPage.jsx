@@ -201,61 +201,60 @@ export default function AssignmentsPage() {
                 { label: 'Home', path: '/' },
                 { label: 'Assignments', path: '/assignments' }
             ]} />
-            <div className="table-container">
-                <div className="table-header">
-                    <h2>All Assignments ({assignments.length})</h2>
-                    <button className="btn btn-primary btn-sm" onClick={openAdd}><HiOutlinePlus /> Add Assignment</button>
-                </div>
-
-                {assignments.length > 0 ? (
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Organization</th>
-                                <th>Location</th>
-                                <th>Status</th>
-                                <th>Projects</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {assignments.map((a) => (
-                                <tr key={a.id} onClick={() => navigate(`/assignments/${a.id}`, { state: { from: '/assignments' } })} style={{ cursor: 'pointer' }}>
-                                    <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</td>
-                                    <td>{a.organization_name}</td>
-                                    <td>{a.location || '—'}</td>
-                                    <td><span className={`badge ${getStatusBadge(a.status)}`}>{a.status}</span></td>
-                                    <td><span className="badge badge-purple">{a.project_count}</span></td>
-                                    <td>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button className="btn-icon" onClick={(e) => openEdit(e, a)} title="Edit"><HiOutlinePencil /></button>
-                                            <button className="btn-icon" onClick={(e) => handleDelete(e, a)} title="Delete" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                ) : (
-                    <div className="empty-state">
-                        <div className="icon"><HiOutlineCollection /></div>
-                        <h3>No assignments yet</h3>
-                        <p>Add an assignment (branch) under an organization to get started.</p>
+            {!showModal ? (
+                <div className="table-container">
+                    <div className="table-header">
+                        <h2>All Assignments ({assignments.length})</h2>
+                        <button className="btn btn-primary btn-sm" onClick={openAdd}><HiOutlinePlus /> Add Assignment</button>
                     </div>
-                )}
-            </div>
 
-            {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>{editItem ? 'Edit Assignment' : 'Add Assignment'}</h2>
-                            <button className="btn-icon" onClick={() => setShowModal(false)}><HiOutlineX /></button>
+                    {assignments.length > 0 ? (
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Organization</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                    <th>Projects</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {assignments.map((a) => (
+                                    <tr key={a.id} onClick={() => navigate(`/assignments/${a.id}`, { state: { from: '/assignments' } })} style={{ cursor: 'pointer' }}>
+                                        <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</td>
+                                        <td>{a.organization_name}</td>
+                                        <td>{a.location || '—'}</td>
+                                        <td><span className={`badge ${getStatusBadge(a.status)}`}>{a.status}</span></td>
+                                        <td><span className="badge badge-purple">{a.project_count}</span></td>
+                                        <td>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button className="btn-icon" onClick={(e) => openEdit(e, a)} title="Edit"><HiOutlinePencil /></button>
+                                                <button className="btn-icon" onClick={(e) => handleDelete(e, a)} title="Delete" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <div className="empty-state">
+                            <div className="icon"><HiOutlineCollection /></div>
+                            <h3>No assignments yet</h3>
+                            <p>Add an assignment (branch) under an organization to get started.</p>
                         </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="modal-body">
-                                {/* Top Layout */}
+                    )}
+                </div>
+            ) : (
+                <div className="form-container fade-in" style={{ background: 'var(--bg-primary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)', maxWidth: 'none', width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
+                        <h2 style={{ fontSize: '20px', fontWeight: '600', color: 'var(--text-primary)' }}>{editItem ? 'Edit Assignment' : 'Add Assignment'}</h2>
+                        <button className="btn btn-secondary" onClick={() => setShowModal(false)}><HiOutlineX /> Cancel</button>
+                    </div>
+                    <form onSubmit={handleSubmit}>
+                        <div>
+                            {/* Top Layout */}
                                 <div className="form-group">
                                     <label>1. Client Name *</label>
                                     <select className="form-control" value={form.organization_id} onChange={(e) => setForm({ ...form, organization_id: e.target.value })} required>
@@ -528,12 +527,11 @@ export default function AssignmentsPage() {
                                     </div>
                                 )}
                             </div>
-                            <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">{editItem ? 'Save Changes' : 'Add Assignment'}</button>
-                            </div>
-                        </form>
-                    </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
+                            <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+                            <button type="submit" className="btn btn-primary">{editItem ? 'Save Changes' : 'Add Assignment'}</button>
+                        </div>
+                    </form>
                 </div>
             )}
         </div>
