@@ -13,6 +13,7 @@ export default function AssignmentsPage() {
     const [showModal, setShowModal] = useState(false);
     const [editItem, setEditItem] = useState(null);
     const [faberUsers, setFaberUsers] = useState([]);
+    const [selectedTeamMemberId, setSelectedTeamMemberId] = useState('');
     const [form, setForm] = useState({ 
         organization_id: '', name: '', location: '', description: '', start_date: '', end_date: '',
         faber_poc_id: '',
@@ -363,30 +364,37 @@ export default function AssignmentsPage() {
                                         {/* Team Member Selector */}
                                         <div className="form-group" style={{ marginBottom: '16px' }}>
                                             <label>Select Team Members</label>
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
-                                                {faberUsers.map(u => {
-                                                    const selected = form.consulting_team.some(t => String(t.user_id) === String(u.id));
-                                                    return (
-                                                        <button
-                                                            key={u.id}
-                                                            type="button"
-                                                            onClick={() => handleToggleTeamMember(u.id)}
-                                                            style={{
-                                                                padding: '6px 14px',
-                                                                borderRadius: '20px',
-                                                                border: selected ? '2px solid var(--primary)' : '1px solid var(--border)',
-                                                                background: selected ? 'var(--primary-light, rgba(59,130,246,0.1))' : 'var(--bg-secondary)',
-                                                                color: selected ? 'var(--primary)' : 'var(--text-secondary)',
-                                                                fontWeight: selected ? 600 : 400,
-                                                                cursor: 'pointer',
-                                                                fontSize: '13px',
-                                                                transition: 'all 0.15s ease'
-                                                            }}
-                                                        >
-                                                            {u.first_name} {u.last_name}
-                                                        </button>
-                                                    );
-                                                })}
+                                            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                                                <select
+                                                    className="form-control"
+                                                    value={selectedTeamMemberId}
+                                                    onChange={(e) => setSelectedTeamMemberId(e.target.value)}
+                                                >
+                                                    <option value="">Select a member...</option>
+                                                    {faberUsers
+                                                        .filter(u => !form.consulting_team.some(t => String(t.user_id) === String(u.id)))
+                                                        .map(u => (
+                                                            <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>
+                                                        ))
+                                                    }
+                                                </select>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-primary"
+                                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}
+                                                    disabled={!selectedTeamMemberId}
+                                                    onClick={() => {
+                                                        if (selectedTeamMemberId) {
+                                                            const exists = form.consulting_team.some(t => String(t.user_id) === String(selectedTeamMemberId));
+                                                            if (!exists) {
+                                                                handleToggleTeamMember(parseInt(selectedTeamMemberId, 10));
+                                                            }
+                                                            setSelectedTeamMemberId('');
+                                                        }
+                                                    }}
+                                                >
+                                                    <HiOutlinePlus size={20} />
+                                                </button>
                                             </div>
                                         </div>
 
@@ -399,7 +407,12 @@ export default function AssignmentsPage() {
                                                         const user = faberUsers.find(u => String(u.id) === String(member.user_id));
                                                         return (
                                                             <div key={member.user_id} style={{ flex: '1 1 200px', minWidth: '180px' }}>
-                                                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{user ? `${user.first_name} ${user.last_name}` : 'User'}</div>
+                                                                <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: '500' }}>
+                                                                    <span>{user ? `${user.first_name} ${user.last_name}` : 'User'}</span>
+                                                                    <button type="button" onClick={() => handleToggleTeamMember(member.user_id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 0, display: 'flex' }} title="Remove Team Member">
+                                                                        <HiOutlineX size={16} />
+                                                                    </button>
+                                                                </div>
                                                                 <input className="form-control" value={member.title} onChange={(e) => handleTeamTitleChange(idx, e.target.value)} placeholder="e.g. Industrial Engineer" />
                                                             </div>
                                                         );
