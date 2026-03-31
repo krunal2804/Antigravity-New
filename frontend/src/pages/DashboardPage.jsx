@@ -240,7 +240,6 @@ export default function DashboardPage() {
     const { user } = useAuth();
     const roleName = user?.role_name || '';
 
-    if (roleName === 'CEM') return <EmptyDashboard roleName={roleName} />;
     if (roleName === 'Consultant') return <ConsultantDashboard user={user} />;
     if (roleName === 'Senior Consultant') return <SrConsultantDashboard user={user} />;
 

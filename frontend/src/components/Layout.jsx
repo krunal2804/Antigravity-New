@@ -16,7 +16,7 @@ import {
 } from 'react-icons/hi';
 
 const allNavItems = [
-    { path: '/', label: 'Dashboard', icon: HiOutlineViewGrid, roles: ['Director', 'Manager', 'CEM', 'Senior Consultant', 'Consultant'] },
+    { path: '/', label: 'Dashboard', icon: HiOutlineViewGrid, roles: ['Director', 'Manager', 'Senior Consultant', 'Consultant'] },
     { path: '/services', label: 'Services Builder', icon: HiOutlineTemplate, roles: ['Director', 'Manager'] },
     { path: '/clients', label: 'Clients', icon: HiOutlineOfficeBuilding, roles: ['Director', 'Manager'] },
     { path: '/assignments', label: 'Assignments', icon: HiOutlineCollection, roles: ['Director', 'Manager'] },
@@ -24,7 +24,7 @@ const allNavItems = [
     { path: '/my-projects', label: 'My Projects', icon: HiOutlineClipboardList, roles: ['Senior Consultant'] },
     { path: '/my-tasks', label: 'My Tasks', icon: HiOutlineClipboardCheck, roles: ['Consultant'] },
     { path: '/users', label: 'Users', icon: HiOutlineUsers, roles: ['Director', 'Manager'] },
-    { path: '/settings', label: 'Settings', icon: HiOutlineCog, roles: ['Director', 'Manager', 'CEM', 'Senior Consultant', 'Consultant'] },
+    { path: '/settings', label: 'Settings', icon: HiOutlineCog, roles: ['Director', 'Manager', 'Senior Consultant', 'Consultant'] },
 ];
 
 const pageTitles = {
