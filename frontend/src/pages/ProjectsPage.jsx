@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { HiOutlinePlus, HiOutlineX, HiOutlineClipboardList, HiOutlineEye, HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlineX, HiOutlineClipboardList, HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi';
 import Breadcrumb from '../components/Breadcrumb';
+import { formatWorkflowStatus, getWorkflowStatusBadge } from '../utils/workflowStatus';
 
 export default function ProjectsPage() {
     const navigate = useNavigate();
@@ -12,7 +13,9 @@ export default function ProjectsPage() {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editItem, setEditItem] = useState(null);
-    const [form, setForm] = useState({ assignment_id: '', service_id: '', name: '', description: '', start_date: '', end_date: '' });
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [form, setForm] = useState({ assignment_id: '', service_id: '', name: '', description: '', start_date: '' });
 
     const fetchData = async () => {
         try {
@@ -28,14 +31,14 @@ export default function ProjectsPage() {
 
     const openAdd = () => {
         setEditItem(null);
-        setForm({ assignment_id: assignments[0]?.id || '', service_id: services[0]?.id || '', name: '', description: '', start_date: '', end_date: '' });
+        setForm({ assignment_id: assignments[0]?.id || '', service_id: services[0]?.id || '', name: '', description: '', start_date: '' });
         setShowModal(true);
     };
 
     const openEdit = (e, p) => {
         e.stopPropagation();
         setEditItem(p);
-        setForm({ assignment_id: p.assignment_id, service_id: p.service_id, name: p.name, description: p.description || '', start_date: p.start_date?.split('T')[0] || '', end_date: p.end_date?.split('T')[0] || '' });
+        setForm({ assignment_id: p.assignment_id, service_id: p.service_id, name: p.name, description: p.description || '', start_date: p.start_date?.split('T')[0] || '' });
         setShowModal(true);
     };
 
@@ -65,16 +68,56 @@ export default function ProjectsPage() {
         }
     };
 
-    const getStatusBadge = (s) => {
-        const m = { not_started: 'badge-default', in_progress: 'badge-info', on_hold: 'badge-warning', completed: 'badge-success', cancelled: 'badge-danger' };
-        return m[s] || 'badge-default';
-    };
-
     const getProgressColor = (pct) => {
         if (pct >= 75) return 'green';
         if (pct >= 40) return 'orange';
         return 'purple';
     };
+
+    const statusPriority = {
+        not_started: 0,
+        active: 1,
+        completed: 2,
+    };
+
+    const statusFilters = [
+        { value: 'all', label: 'All' },
+        { value: 'not_started', label: 'Not Started' },
+        { value: 'active', label: 'Active' },
+        { value: 'completed', label: 'Completed' },
+    ];
+
+    const filteredProjects = projects
+        .filter((project) => {
+            if (statusFilter !== 'all' && project.status !== statusFilter) {
+                return false;
+            }
+
+            const query = searchTerm.trim().toLowerCase();
+            if (!query) return true;
+
+            const searchableText = [
+                project.name,
+                project.organization_name,
+                project.assignment_name,
+                project.service_name,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return searchableText.includes(query);
+        })
+        .sort((left, right) => {
+            const leftPriority = statusPriority[left.status] ?? 99;
+            const rightPriority = statusPriority[right.status] ?? 99;
+
+            if (leftPriority !== rightPriority) {
+                return leftPriority - rightPriority;
+            }
+
+            return left.name.localeCompare(right.name);
+        });
 
     if (loading) return <div className="loading-spinner"><div className="spinner" /></div>;
 
@@ -84,12 +127,64 @@ export default function ProjectsPage() {
                 { label: 'Home', path: '/' },
                 { label: 'Projects', path: '/projects' }
             ]} />
+            <div
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    flexWrap: 'wrap',
+                    marginBottom: '16px',
+                }}
+            >
+                <input
+                    className="form-control"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search projects"
+                    style={{
+                        flex: '1 1 320px',
+                        minWidth: '220px',
+                        maxWidth: '100%',
+                        height: '40px',
+                        borderRadius: '999px',
+                        background: '#ffffff',
+                    }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {statusFilters.map((filter) => {
+                        const isActive = statusFilter === filter.value;
+                        return (
+                            <button
+                                key={filter.value}
+                                type="button"
+                                onClick={() => setStatusFilter(filter.value)}
+                                style={{
+                                    border: '1px solid',
+                                    borderColor: isActive ? 'var(--accent)' : 'var(--border)',
+                                    background: isActive ? 'var(--accent-light)' : 'var(--bg-secondary)',
+                                    color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                                    borderRadius: '999px',
+                                    padding: '0 14px',
+                                    height: '40px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    transition: 'var(--transition)',
+                                }}
+                            >
+                                {filter.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
             <div className="table-container">
                 <div className="table-header">
-                    <h2>All Projects ({projects.length})</h2>
+                    <h2>All Projects ({filteredProjects.length})</h2>
                 </div>
 
-                {projects.length > 0 ? (
+                {filteredProjects.length > 0 ? (
                     <table>
                         <thead>
                             <tr>
@@ -104,13 +199,13 @@ export default function ProjectsPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {projects.map((p) => (
+                            {filteredProjects.map((p) => (
                                 <tr key={p.id} onClick={() => navigate(`/projects/${p.id}`, { state: { from: '/projects' } })} style={{ cursor: 'pointer' }}>
                                     <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{p.name}</td>
                                     <td>{p.organization_name}</td>
                                     <td>{p.assignment_name}</td>
                                     <td><span className="badge badge-purple">{p.service_name}</span></td>
-                                    <td><span className={`badge ${getStatusBadge(p.status)}`}>{p.status.replace(/_/g, ' ')}</span></td>
+                                    <td><span className={`badge ${getWorkflowStatusBadge(p.status)}`}>{formatWorkflowStatus(p.status)}</span></td>
                                     <td style={{ minWidth: '120px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <div className="progress-bar" style={{ flex: 1 }}>
@@ -139,8 +234,8 @@ export default function ProjectsPage() {
                 ) : (
                     <div className="empty-state">
                         <div className="icon"><HiOutlineClipboardList /></div>
-                        <h3>No projects yet</h3>
-                        <p>Create an organization and assignment first, then add your first project.</p>
+                        <h3>No projects found</h3>
+                        <p>Try adjusting the search or status filter.</p>
                     </div>
                 )}
             </div>
@@ -170,15 +265,9 @@ export default function ProjectsPage() {
                                     <label>Description</label>
                                     <input className="form-control" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Brief project description" />
                                 </div>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label>Start Date</label>
-                                        <input type="date" className="form-control" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>End Date</label>
-                                        <input type="date" className="form-control" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
-                                    </div>
+                                <div className="form-group">
+                                    <label>Start Date</label>
+                                    <input type="date" className="form-control" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
                                 </div>
                             </div>
                             <div className="modal-footer">

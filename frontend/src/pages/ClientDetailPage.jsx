@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
-import { HiOutlineArrowLeft, HiOutlineCollection, HiOutlineClipboardList } from 'react-icons/hi';
+import { HiOutlineCollection, HiOutlineClipboardList } from 'react-icons/hi';
 import Breadcrumb from '../components/Breadcrumb';
+import { formatWorkflowStatus, getWorkflowStatusBadge } from '../utils/workflowStatus';
 
 export default function ClientDetailPage() {
     const { id } = useParams();
@@ -34,15 +35,13 @@ export default function ClientDetailPage() {
                 { label: org.name, path: `/clients/${id}` }
             ]} />
 
-            {/* Header */}
             <div style={{ marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '24px', fontWeight: 700 }}>{org.name}</h2>
                 <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-                    {[org.industry, org.city, org.state, org.country].filter(Boolean).join(' â€¢ ') || 'No details'}
+                    {[org.industry, org.city, org.state, org.country].filter(Boolean).join(' • ') || 'No details'}
                 </span>
             </div>
 
-            {/* Summary stats */}
             <div className="stats-grid" style={{ marginBottom: '28px' }}>
                 <div className="stat-card">
                     <div className="stat-icon blue"><HiOutlineCollection /></div>
@@ -60,7 +59,6 @@ export default function ClientDetailPage() {
                 </div>
             </div>
 
-            {/* Assignment list */}
             {org.assignments && org.assignments.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {org.assignments.map((a) => (
@@ -82,7 +80,7 @@ export default function ClientDetailPage() {
                                 <div>
                                     <h3 style={{ fontSize: '18px', fontWeight: 700 }}>{a.name}</h3>
                                     <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                                        {a.location || 'No location'} â€¢ {a.project_count} project{a.project_count !== 1 ? 's' : ''} â€¢ {a.total_tasks} task{a.total_tasks !== 1 ? 's' : ''}
+                                        {a.location || 'No location'} • {a.project_count} project{a.project_count !== 1 ? 's' : ''} • {a.total_tasks} task{a.total_tasks !== 1 ? 's' : ''}
                                     </span>
                                 </div>
                                 <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -96,8 +94,8 @@ export default function ClientDetailPage() {
                                 />
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                                <span>{a.completed_tasks} of {a.total_tasks} tasks completed</span>
-                                {a.status && <span className="badge badge-default">{a.status.replace(/_/g, ' ')}</span>}
+                                <span>{a.completed_tasks} of {a.total_tasks} tasks done</span>
+                                {a.status && <span className={`badge ${getWorkflowStatusBadge(a.status)}`}>{formatWorkflowStatus(a.status)}</span>}
                             </div>
                         </div>
                     ))}

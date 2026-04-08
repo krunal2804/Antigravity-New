@@ -32,6 +32,7 @@ app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/services', require('./routes/services'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 // 404 handler
 app.use((req, res) => {

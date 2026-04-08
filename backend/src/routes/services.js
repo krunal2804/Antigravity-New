@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../database/db');
 const { authenticate, authorize } = require('../middleware/auth');
+const { resequenceProjectsForService } = require('../utils/projectTaskOrder');
 
 const router = express.Router();
 
@@ -146,6 +147,7 @@ router.put('/steps/:stepId', authenticate, async (req, res) => {
         if (sequence_order !== undefined) updateData.sequence_order = sequence_order;
 
         const [step] = await db('service_steps').where({ id: req.params.stepId }).update(updateData).returning('*');
+        if (!step) return res.status(404).json({ error: 'Step not found.' });
         
         // Deep Sync: Update step_name on all project_tasks across active projects
         if (name !== undefined) {
@@ -156,6 +158,10 @@ router.put('/steps/:stepId', authenticate, async (req, res) => {
                      .whereIn('service_task_id', taskIds)
                      .update({ step_name: name });
              }
+        }
+
+        if (sequence_order !== undefined) {
+            await resequenceProjectsForService(db, step.service_id);
         }
 
         res.json(step);
@@ -184,6 +190,8 @@ router.delete('/steps/:stepId', authenticate, async (req, res) => {
             .where({ service_id: step.service_id })
             .andWhere('sequence_order', '>', step.sequence_order)
             .decrement('sequence_order', 1);
+
+        await resequenceProjectsForService(db, step.service_id);
 
         res.json({ message: 'Step deleted and remaining steps reordered.' });
     } catch (err) {
@@ -238,13 +246,14 @@ router.post('/steps/:stepId/tasks', authenticate, async (req, res) => {
                         step_name: step.name,
                         name: task.name,
                         description: task.description,
-                        sequence_order: task.sequence_order,
+                        sequence_order: task.sequence_order + 1,
                         is_mandatory: true,
                         start_date: taskStart,
                         due_date: taskDue
                     };
                 });
                 await db('project_tasks').insert(projectTasksToInsert);
+                await resequenceProjectsForService(db, step.service_id);
             }
         }
 
@@ -268,12 +277,18 @@ router.put('/tasks/:taskId', authenticate, async (req, res) => {
         if (sequence_order !== undefined) updateData.sequence_order = sequence_order;
 
         const [task] = await db('service_tasks').where({ id: req.params.taskId }).update(updateData).returning('*');
+        if (!task) return res.status(404).json({ error: 'Task not found.' });
 
         // Deep Sync: Sync task changes down to cloned project_tasks
         const projectTaskUpdate = { name: task.name, description: task.description, updated_at: db.fn.now() };
         if (sequence_order !== undefined) projectTaskUpdate.sequence_order = task.sequence_order;
         
         await db('project_tasks').where({ service_task_id: task.id }).update(projectTaskUpdate);
+
+        const step = await db('service_steps').where({ id: task.service_step_id }).first();
+        if (step && sequence_order !== undefined) {
+            await resequenceProjectsForService(db, step.service_id);
+        }
 
         res.json(task);
     } catch (err) {
@@ -297,6 +312,11 @@ router.delete('/tasks/:taskId', authenticate, async (req, res) => {
             .where({ service_step_id: task.service_step_id })
             .andWhere('sequence_order', '>', task.sequence_order)
             .decrement('sequence_order', 1);
+
+        const step = await db('service_steps').where({ id: task.service_step_id }).first();
+        if (step) {
+            await resequenceProjectsForService(db, step.service_id);
+        }
 
         res.json({ message: 'Task deleted and remaining tasks reordered.' });
     } catch (err) {

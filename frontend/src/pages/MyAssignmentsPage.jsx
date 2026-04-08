@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { HiOutlineClipboardList } from 'react-icons/hi';
+import { HiOutlineCollection } from 'react-icons/hi';
 import Breadcrumb from '../components/Breadcrumb';
 import { formatWorkflowStatus, getWorkflowStatusBadge } from '../utils/workflowStatus';
 
-export default function MyProjectsPage() {
+export default function MyAssignmentsPage() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -14,19 +14,12 @@ export default function MyProjectsPage() {
 
     useEffect(() => {
         api.get('/dashboard/my-portal')
-            .then(res => setData(res.data))
+            .then((res) => setData(res.data))
             .catch(console.error)
             .finally(() => setLoading(false));
     }, []);
 
     const assignments = data?.assignments || [];
-    const projects = assignments.flatMap(a =>
-        (a.projects || []).map(p => ({
-            ...p,
-            assignment_name: a.name,
-            organization_name: a.organization_name,
-        }))
-    );
 
     const getProgressColor = (pct) => {
         if (pct >= 75) return 'green';
@@ -47,9 +40,9 @@ export default function MyProjectsPage() {
         { value: 'completed', label: 'Completed' },
     ];
 
-    const filteredProjects = projects
-        .filter((project) => {
-            if (statusFilter !== 'all' && project.status !== statusFilter) {
+    const filteredAssignments = assignments
+        .filter((assignment) => {
+            if (statusFilter !== 'all' && assignment.status !== statusFilter) {
                 return false;
             }
 
@@ -57,10 +50,10 @@ export default function MyProjectsPage() {
             if (!query) return true;
 
             const searchableText = [
-                project.name,
-                project.organization_name,
-                project.assignment_name,
-                project.service_name,
+                assignment.name,
+                assignment.organization_name,
+                assignment.location,
+                assignment.my_title,
             ]
                 .filter(Boolean)
                 .join(' ')
@@ -83,7 +76,7 @@ export default function MyProjectsPage() {
 
     return (
         <div className="fade-in">
-            <Breadcrumb items={[{ label: 'Home', path: '/' }, { label: 'My Projects', path: '/my-projects' }]} />
+            <Breadcrumb items={[{ label: 'Home', path: '/' }, { label: 'My Assignments', path: '/my-assignments' }]} />
             <div
                 style={{
                     display: 'flex',
@@ -98,7 +91,7 @@ export default function MyProjectsPage() {
                     className="form-control"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search projects"
+                    placeholder="Search assignments"
                     style={{
                         flex: '1 1 320px',
                         minWidth: '220px',
@@ -138,71 +131,83 @@ export default function MyProjectsPage() {
             </div>
             <div className="table-container">
                 <div className="table-header">
-                    <h2>My Projects ({filteredProjects.length})</h2>
+                    <h2>My Assignments ({filteredAssignments.length})</h2>
                 </div>
 
-                {filteredProjects.length > 0 ? (
+                {filteredAssignments.length > 0 ? (
                     <table>
                         <thead>
                             <tr>
-                                <th>Project</th>
-                                <th>Client</th>
                                 <th>Assignment</th>
-                                <th>Service</th>
-                                <th>Status</th>
+                                <th>Client</th>
+                                <th>Location</th>
+                                <th>Projects</th>
                                 <th>Progress</th>
+                                <th>Status</th>
+                                <th>My Role</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredProjects.map(p => (
-                                <tr
-                                    key={p.id}
-                                    style={{ cursor: 'pointer' }}
-                                    onClick={() => navigate(`/projects/${p.id}`, {
-                                        state: {
-                                            from: '/my-projects',
-                                            assignmentId: p.assignment_id,
-                                            assignmentName: p.assignment_name,
-                                        }
-                                    })}
-                                >
-                                    <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{p.name}</td>
-                                    <td>{p.organization_name}</td>
-                                    <td style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{p.assignment_name}</td>
-                                    <td>
-                                        <span className="badge badge-purple">{p.service_name}</span>
-                                    </td>
-                                    <td>
-                                        <span className={`badge ${getWorkflowStatusBadge(p.status)}`}>
-                                            {formatWorkflowStatus(p.status)}
-                                        </span>
-                                    </td>
-                                    <td style={{ minWidth: '120px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div className="progress-bar" style={{ flex: 1 }}>
-                                                <div
-                                                    className={`fill ${getProgressColor(parseFloat(p.progress_percentage || 0))}`}
-                                                    style={{ width: `${p.progress_percentage || 0}%` }}
-                                                />
-                                            </div>
-                                            <span style={{ fontSize: '12px', fontWeight: 600, minWidth: '36px' }}>
-                                                {parseFloat(p.progress_percentage || 0).toFixed(0)}%
+                            {filteredAssignments.map((assignment) => {
+                                const progress = parseFloat(assignment.overall_progress || 0);
+
+                                return (
+                                    <tr
+                                        key={assignment.id}
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => navigate(`/assignments/${assignment.id}`, { state: { from: '/my-assignments' } })}
+                                    >
+                                        <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{assignment.name}</td>
+                                        <td>{assignment.organization_name}</td>
+                                        <td style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{assignment.location || '-'}</td>
+                                        <td>
+                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                                                {assignment.projects?.length || 0}
                                             </span>
-                                        </div>
-                                        {p.task_overdue > 0 && (
-                                            <div style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 600, marginTop: '2px' }}>
-                                                {p.task_overdue} overdue
+                                        </td>
+                                        <td style={{ minWidth: '140px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div className="progress-bar" style={{ flex: 1 }}>
+                                                    <div
+                                                        className={`fill ${getProgressColor(progress)}`}
+                                                        style={{ width: `${progress}%` }}
+                                                    />
+                                                </div>
+                                                <span style={{ fontSize: '12px', fontWeight: 600, minWidth: '36px' }}>
+                                                    {progress.toFixed(0)}%
+                                                </span>
                                             </div>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td>
+                                            <span className={`badge ${getWorkflowStatusBadge(assignment.status)}`}>
+                                                {formatWorkflowStatus(assignment.status)}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {assignment.my_title ? (
+                                                <span
+                                                    style={{
+                                                        background: '#e5e7eb',
+                                                        color: '#111827',
+                                                        fontSize: '11px',
+                                                        fontWeight: 600,
+                                                        padding: '3px 10px',
+                                                        borderRadius: '999px',
+                                                    }}
+                                                >
+                                                    {assignment.my_title}
+                                                </span>
+                                            ) : '-'}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 ) : (
                     <div className="empty-state">
-                        <div className="icon"><HiOutlineClipboardList /></div>
-                        <h3>No projects found</h3>
+                        <div className="icon"><HiOutlineCollection /></div>
+                        <h3>No assignments found</h3>
                         <p>Try adjusting the search or status filter.</p>
                     </div>
                 )}

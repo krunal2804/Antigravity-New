@@ -1,10 +1,11 @@
 const express = require('express');
 const db = require('../database/db');
 const { authenticate, authorize } = require('../middleware/auth');
+const { buildTaskLockState, resequenceProjectTasks } = require('../utils/projectTaskOrder');
+const { deriveProjectWorkflowStatusFromTasks, deriveProjectWorkflowStatus } = require('../utils/workflowStatus');
 
 const router = express.Router();
 
-// GET /api/projects
 router.get('/', authenticate, async (req, res) => {
     try {
         const { assignment_id, status, service_id } = req.query;
@@ -22,27 +23,31 @@ router.get('/', authenticate, async (req, res) => {
             .where('projects.is_active', true);
 
         if (assignment_id) query = query.where('projects.assignment_id', assignment_id);
-        if (status) query = query.where('projects.status', status);
+        if (status) query = query.where('projects.status', status === 'active' ? 'in_progress' : status);
         if (service_id) query = query.where('projects.service_id', service_id);
 
         const projects = await query.orderBy('projects.created_at', 'desc');
 
-        // Enrich with task stats
         const enriched = await Promise.all(
             projects.map(async (p) => {
                 const taskStats = await db('project_tasks')
                     .where({ project_id: p.id })
                     .select(
                         db.raw('COUNT(*) as total'),
-                        db.raw("COUNT(*) FILTER (WHERE status = 'completed') as completed"),
-                        db.raw("COUNT(*) FILTER (WHERE status = 'overdue' OR (due_date < NOW() AND status NOT IN ('completed', 'skipped'))) as overdue")
+                        db.raw("COUNT(*) FILTER (WHERE status IN ('completed', 'skipped')) as completed"),
+                        db.raw("COUNT(*) FILTER (WHERE due_date < NOW() AND status NOT IN ('completed', 'skipped')) as overdue")
                     )
                     .first();
+
+                const totalTasks = parseInt(taskStats.total, 10) || 0;
+                const completedTasks = parseInt(taskStats.completed, 10) || 0;
+
                 return {
                     ...p,
-                    task_total: parseInt(taskStats.total),
-                    task_completed: parseInt(taskStats.completed),
-                    task_overdue: parseInt(taskStats.overdue),
+                    status: deriveProjectWorkflowStatus(totalTasks, completedTasks),
+                    task_total: totalTasks,
+                    task_completed: completedTasks,
+                    task_overdue: parseInt(taskStats.overdue, 10) || 0,
                 };
             })
         );
@@ -54,7 +59,6 @@ router.get('/', authenticate, async (req, res) => {
     }
 });
 
-// GET /api/projects/:id
 router.get('/:id', authenticate, async (req, res) => {
     try {
         const project = await db('projects')
@@ -75,10 +79,20 @@ router.get('/:id', authenticate, async (req, res) => {
 
         const tasks = await db('project_tasks')
             .leftJoin('users', 'project_tasks.assigned_to', 'users.id')
-            .select('project_tasks.*', 'users.first_name as assignee_first_name', 'users.last_name as assignee_last_name')
+            .leftJoin('service_tasks', 'project_tasks.service_task_id', 'service_tasks.id')
+            .leftJoin('service_steps', 'service_tasks.service_step_id', 'service_steps.id')
+            .select(
+                'project_tasks.*',
+                'users.first_name as assignee_first_name',
+                'users.last_name as assignee_last_name',
+                'service_tasks.sequence_order as service_task_sequence_order',
+                'service_steps.sequence_order as service_step_sequence_order'
+            )
             .where({ project_id: project.id })
-            .orderBy('sequence_order')
-            .orderBy('id');
+            .orderBy('service_steps.sequence_order')
+            .orderBy('service_tasks.sequence_order')
+            .orderBy('project_tasks.sequence_order')
+            .orderBy('project_tasks.id');
 
         for (let task of tasks) {
             if (task.service_task_id) {
@@ -91,12 +105,11 @@ router.get('/:id', authenticate, async (req, res) => {
             }
         }
 
-        const members = await db('project_members')
-            .join('users', 'project_members.user_id', 'users.id')
-            .join('roles', 'project_members.role_id', 'roles.id')
-            .select('project_members.*', 'users.first_name', 'users.last_name', 'users.email', 'roles.name as role_name', 'roles.side')
-            .where({ project_id: project.id })
-            .whereNull('project_members.left_at');
+        const members = await db('assignment_team_members')
+            .join('users', 'assignment_team_members.user_id', 'users.id')
+            .join('roles', 'users.role_id', 'roles.id')
+            .select('assignment_team_members.user_id', 'assignment_team_members.title', 'users.first_name', 'users.last_name', 'users.email', 'roles.name as role_name', 'roles.side')
+            .where('assignment_team_members.assignment_id', project.assignment_id);
 
         const timeline = await db('project_timeline_events')
             .leftJoin('users', 'project_timeline_events.created_by', 'users.id')
@@ -104,26 +117,32 @@ router.get('/:id', authenticate, async (req, res) => {
             .where({ project_id: project.id })
             .orderBy('event_date', 'desc');
 
-        res.json({ ...project, tasks, members, timeline });
+        const lockedTasks = buildTaskLockState(tasks);
+
+        res.json({
+            ...project,
+            status: deriveProjectWorkflowStatusFromTasks(lockedTasks),
+            tasks: lockedTasks,
+            members,
+            timeline,
+        });
     } catch (err) {
         console.error('Get project detail error:', err);
         res.status(500).json({ error: 'Failed to fetch project.' });
     }
 });
 
-// POST /api/projects
 router.post('/', authenticate, authorize('projects', 'can_create'), async (req, res) => {
     try {
-        const { assignment_id, service_id, name, description, project_code, start_date, end_date } = req.body;
+        const { assignment_id, service_id, name, description, project_code, start_date } = req.body;
         if (!assignment_id || !service_id || !name) {
             return res.status(400).json({ error: 'assignment_id, service_id, and name are required.' });
         }
 
         const [project] = await db('projects')
-            .insert({ assignment_id, service_id, name, description, project_code, start_date, end_date, created_by: req.user.id })
+            .insert({ assignment_id, service_id, name, description, project_code, start_date, created_by: req.user.id })
             .returning('*');
 
-        // Auto-populate tasks from service_steps template
         const serviceSteps = await db('service_steps')
             .where({ service_id, is_active: true })
             .orderBy('sequence_order');
@@ -131,12 +150,16 @@ router.post('/', authenticate, authorize('projects', 'can_create'), async (req, 
         if (serviceSteps.length > 0) {
             const stepIds = serviceSteps.map(s => s.id);
             const serviceTasks = await db('service_tasks')
-                .whereIn('service_step_id', stepIds)
-                .where({ is_active: true })
-                .orderBy('sequence_order');
+                .join('service_steps', 'service_tasks.service_step_id', 'service_steps.id')
+                .whereIn('service_tasks.service_step_id', stepIds)
+                .where({ 'service_tasks.is_active': true })
+                .select('service_tasks.*', 'service_steps.sequence_order as step_sequence_order')
+                .orderBy('service_steps.sequence_order')
+                .orderBy('service_tasks.sequence_order')
+                .orderBy('service_tasks.id');
 
             if (serviceTasks.length > 0) {
-                const projectTasks = serviceTasks.map((st) => {
+                const projectTasks = serviceTasks.map((st, index) => {
                     const stepName = serviceSteps.find(s => s.id === st.service_step_id)?.name || null;
 
                     let taskStart = null;
@@ -153,7 +176,7 @@ router.post('/', authenticate, authorize('projects', 'can_create'), async (req, 
                         step_name: stepName,
                         name: st.name,
                         description: st.description,
-                        sequence_order: st.sequence_order,
+                        sequence_order: index + 1,
                         is_mandatory: st.is_mandatory,
                         start_date: taskStart,
                         due_date: taskDue,
@@ -161,10 +184,10 @@ router.post('/', authenticate, authorize('projects', 'can_create'), async (req, 
                 });
 
                 await db('project_tasks').insert(projectTasks);
+                await resequenceProjectTasks(db, project.id);
             }
         }
 
-        // Add creator as project member
         await db('project_members').insert({
             project_id: project.id,
             user_id: req.user.id,
@@ -172,7 +195,6 @@ router.post('/', authenticate, authorize('projects', 'can_create'), async (req, 
             is_primary: true,
         });
 
-        // Create timeline event
         await db('project_timeline_events').insert({
             project_id: project.id,
             event_type: 'milestone',
@@ -188,13 +210,12 @@ router.post('/', authenticate, authorize('projects', 'can_create'), async (req, 
     }
 });
 
-// PUT /api/projects/:id
 router.put('/:id', authenticate, authorize('projects', 'can_edit'), async (req, res) => {
     try {
-        const { name, description, start_date, end_date, status } = req.body;
+        const { name, description, start_date } = req.body;
         const [project] = await db('projects')
             .where({ id: req.params.id })
-            .update({ name, description, start_date, end_date, status, updated_at: db.fn.now() })
+            .update({ name, description, start_date, updated_at: db.fn.now() })
             .returning('*');
         if (!project) return res.status(404).json({ error: 'Project not found.' });
         res.json(project);
@@ -203,7 +224,6 @@ router.put('/:id', authenticate, authorize('projects', 'can_edit'), async (req, 
     }
 });
 
-// DELETE /api/projects/:id (soft)
 router.delete('/:id', authenticate, authorize('projects', 'can_delete'), async (req, res) => {
     try {
         await db('projects').where({ id: req.params.id }).update({ is_active: false });

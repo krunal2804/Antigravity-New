@@ -1,10 +1,11 @@
 const express = require('express');
 const db = require('../database/db');
 const { authenticate, authorize } = require('../middleware/auth');
+const { calculateAssignmentProgress } = require('../utils/assignmentProgress');
+const { deriveProjectWorkflowStatus, deriveAssignmentWorkflowStatus } = require('../utils/workflowStatus');
 
 const router = express.Router();
 
-// GET /api/organizations
 router.get('/', authenticate, async (req, res) => {
     try {
         const orgs = await db('organizations')
@@ -12,7 +13,6 @@ router.get('/', authenticate, async (req, res) => {
             .where('organizations.is_active', true)
             .orderBy('organizations.name');
 
-        // Enrich with assignment and project counts
         const enriched = await Promise.all(
             orgs.map(async (org) => {
                 const [{ count: assignmentCount }] = await db('assignments').where({ organization_id: org.id, is_active: true }).count();
@@ -20,7 +20,7 @@ router.get('/', authenticate, async (req, res) => {
                     .join('assignments', 'projects.assignment_id', 'assignments.id')
                     .where({ 'assignments.organization_id': org.id, 'projects.is_active': true })
                     .count();
-                return { ...org, assignment_count: parseInt(assignmentCount), project_count: parseInt(projectCount) };
+                return { ...org, assignment_count: parseInt(assignmentCount, 10), project_count: parseInt(projectCount, 10) };
             })
         );
 
@@ -31,7 +31,6 @@ router.get('/', authenticate, async (req, res) => {
     }
 });
 
-// GET /api/organizations/:id
 router.get('/:id', authenticate, async (req, res) => {
     try {
         const org = await db('organizations').where({ id: req.params.id }).first();
@@ -39,33 +38,43 @@ router.get('/:id', authenticate, async (req, res) => {
 
         const assignments = await db('assignments').where({ organization_id: org.id, is_active: true });
 
-        // Enrich each assignment with progress data from its projects' tasks
         const enriched = await Promise.all(
-            assignments.map(async (a) => {
-                const projects = await db('projects').where({ assignment_id: a.id, is_active: true });
-                const projectIds = projects.map((p) => p.id);
+            assignments.map(async (assignment) => {
+                const projects = await db('projects').where({ assignment_id: assignment.id, is_active: true }).select('id', 'progress_percentage');
+                const projectIds = projects.map((project) => project.id);
 
                 let totalTasks = 0;
                 let completedTasks = 0;
+                let projectStatuses = [];
+
                 if (projectIds.length > 0) {
-                    const stats = await db('project_tasks')
-                        .whereIn('project_id', projectIds)
-                        .select(
-                            db.raw('COUNT(*) as total'),
-                            db.raw("COUNT(*) FILTER (WHERE status = 'completed') as completed")
-                        )
-                        .first();
-                    totalTasks = parseInt(stats.total);
-                    completedTasks = parseInt(stats.completed);
+                    const projectTaskStats = await Promise.all(
+                        projectIds.map(async (projectId) => {
+                            const stats = await db('project_tasks')
+                                .where({ project_id: projectId })
+                                .select(
+                                    db.raw('COUNT(*) as total'),
+                                    db.raw("COUNT(*) FILTER (WHERE status IN ('completed', 'skipped')) as completed")
+                                )
+                                .first();
+
+                            const taskTotal = parseInt(stats.total, 10) || 0;
+                            const taskCompleted = parseInt(stats.completed, 10) || 0;
+                            totalTasks += taskTotal;
+                            completedTasks += taskCompleted;
+                            projectStatuses.push(deriveProjectWorkflowStatus(taskTotal, taskCompleted));
+                        })
+                    );
+                    void projectTaskStats;
                 }
 
-                const progress = totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : 0;
                 return {
-                    ...a,
+                    ...assignment,
+                    status: deriveAssignmentWorkflowStatus(projectStatuses),
                     project_count: projects.length,
                     total_tasks: totalTasks,
                     completed_tasks: completedTasks,
-                    progress_percentage: parseFloat(progress),
+                    progress_percentage: calculateAssignmentProgress(projects),
                 };
             })
         );
@@ -76,7 +85,6 @@ router.get('/:id', authenticate, async (req, res) => {
     }
 });
 
-// POST /api/organizations
 router.post('/', authenticate, authorize('organizations', 'can_create'), async (req, res) => {
     try {
         const { name, industry, website, address, city, state, country, pincode, phone, email } = req.body;
@@ -93,7 +101,6 @@ router.post('/', authenticate, authorize('organizations', 'can_create'), async (
     }
 });
 
-// PUT /api/organizations/:id
 router.put('/:id', authenticate, authorize('organizations', 'can_edit'), async (req, res) => {
     try {
         const { name, industry, website, address, city, state, country, pincode, phone, email } = req.body;
@@ -105,20 +112,15 @@ router.put('/:id', authenticate, authorize('organizations', 'can_edit'), async (
     }
 });
 
-// DELETE /api/organizations/:id (soft delete with cascade)
 router.delete('/:id', authenticate, authorize('organizations', 'can_delete'), async (req, res) => {
     try {
         await db.transaction(async (trx) => {
-            // Deactivate organization
             await trx('organizations').where({ id: req.params.id }).update({ is_active: false });
 
-            // Deactivate assignments
             const assignments = await trx('assignments').where({ organization_id: req.params.id }).select('id');
             if (assignments.length > 0) {
-                const assignmentIds = assignments.map(a => a.id);
+                const assignmentIds = assignments.map((assignment) => assignment.id);
                 await trx('assignments').whereIn('id', assignmentIds).update({ is_active: false });
-
-                // Deactivate projects under those assignments
                 await trx('projects').whereIn('assignment_id', assignmentIds).update({ is_active: false });
             }
         });

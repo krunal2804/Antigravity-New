@@ -11,9 +11,11 @@ import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import UsersPage from './pages/UsersPage';
 import MyProjectsPage from './pages/MyProjectsPage';
-import MyTasksPage from './pages/MyTasksPage';
+import MyAssignmentsPage from './pages/MyAssignmentsPage';
 import SettingsPage from './pages/SettingsPage';
 import ServicesPage from './pages/ServicesPage';
+import AnnouncementsPage from './pages/AnnouncementsPage';
+import AnnouncementDetailPage from './pages/AnnouncementDetailPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -47,12 +49,14 @@ function AppRoutes() {
         <Route path="clients" element={<RoleRoute roles={['Director', 'Manager']}><OrganizationsPage /></RoleRoute>} />
         <Route path="clients/:id" element={<RoleRoute roles={['Director', 'Manager']}><ClientDetailPage /></RoleRoute>} />
         <Route path="assignments" element={<RoleRoute roles={['Director', 'Manager']}><AssignmentsPage /></RoleRoute>} />
-        <Route path="assignments/:id" element={<RoleRoute roles={['Director', 'Manager', 'Senior Consultant']}><AssignmentDetailPage /></RoleRoute>} />
+        <Route path="assignments/:id" element={<RoleRoute roles={['Director', 'Manager', 'Senior Consultant', 'Consultant']}><AssignmentDetailPage /></RoleRoute>} />
         <Route path="projects" element={<RoleRoute roles={['Director', 'Manager']}><ProjectsPage /></RoleRoute>} />
-        <Route path="projects/:id" element={<RoleRoute roles={['Director', 'Manager', 'Senior Consultant']}><ProjectDetailPage /></RoleRoute>} />
+        <Route path="projects/:id" element={<RoleRoute roles={['Director', 'Manager', 'Senior Consultant', 'Consultant']}><ProjectDetailPage /></RoleRoute>} />
         <Route path="users" element={<RoleRoute roles={['Director', 'Manager']}><UsersPage /></RoleRoute>} />
-        <Route path="my-projects" element={<RoleRoute roles={['Senior Consultant']}><MyProjectsPage /></RoleRoute>} />
-        <Route path="my-tasks" element={<RoleRoute roles={['Consultant']}><MyTasksPage /></RoleRoute>} />
+        <Route path="my-assignments" element={<RoleRoute roles={['Senior Consultant', 'Consultant']}><MyAssignmentsPage /></RoleRoute>} />
+        <Route path="my-projects" element={<RoleRoute roles={['Senior Consultant', 'Consultant']}><MyProjectsPage /></RoleRoute>} />
+        <Route path="announcements" element={<RoleRoute roles={['Senior Consultant', 'Consultant']}><AnnouncementsPage /></RoleRoute>} />
+        <Route path="announcements/:id" element={<RoleRoute roles={['Senior Consultant', 'Consultant']}><AnnouncementDetailPage /></RoleRoute>} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>

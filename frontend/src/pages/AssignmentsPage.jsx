@@ -3,8 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { HiOutlinePlus, HiOutlinePencil, HiOutlineX, HiOutlineCollection, HiOutlineTrash } from 'react-icons/hi';
 import Breadcrumb from '../components/Breadcrumb';
+import { formatWorkflowStatus, getWorkflowStatusBadge } from '../utils/workflowStatus';
 
 export default function AssignmentsPage() {
+    const initialLogistics = {
+        travel: { book_by: 'Client', paid_by: 'Client' },
+        lodging: { book_by: 'Client', paid_by: 'Client' },
+        boarding: { book_by: 'Client', paid_by: 'Client' },
+        local_conveyance: { book_by: 'Client', paid_by: 'Client' }
+    };
     const navigate = useNavigate();
     const [assignments, setAssignments] = useState([]);
     const [orgs, setOrgs] = useState([]);
@@ -12,24 +19,31 @@ export default function AssignmentsPage() {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editItem, setEditItem] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
     const [faberUsers, setFaberUsers] = useState([]);
     const [selectedTeamMemberId, setSelectedTeamMemberId] = useState('');
-    const [form, setForm] = useState({ 
-        organization_id: '', name: '', location: '', description: '', start_date: '', end_date: '',
+    const [errors, setErrors] = useState({});
+    const [form, setForm] = useState({
+        organization_id: '', name: '', location: '', description: '', start_date: '',
         faber_poc_id: '',
         top_management_name: '', top_management_designation: '', top_management_mobile: '', top_management_email: '',
         client_poc_name: '', client_poc_designation: '', client_poc_mobile: '', client_poc_email: '',
+        logistics_poc_name: '', logistics_poc_designation: '', logistics_poc_mobile: '', logistics_poc_email: '',
+        logistics_arrangements: initialLogistics,
+        conf_data_sharing: false, conf_aae_communication: false,
+        special_instructions: '',
         schedule_type: 'month',
         consulting_team: [],    // [{ user_id, title }]
         period_count: 1,
         consulting_grid: [[]],  // grid[periodIndex][teamIndex] = days
-        projects: [] 
+        projects: []
     });
 
     const fetchData = async () => {
         try {
             const [aRes, oRes, sRes, uRes] = await Promise.all([
-                api.get('/assignments'), 
+                api.get('/assignments'),
                 api.get('/organizations'),
                 api.get('/services'),
                 api.get('/users?role_side=consulting')
@@ -44,39 +58,62 @@ export default function AssignmentsPage() {
 
     useEffect(() => { fetchData(); }, []);
 
-    const getEmptyProject = () => ({ name: '', service_id: '', description: '', start_date: '', end_date: '', project_code: '' });
+    const getEmptyProject = () => ({ name: '', service_id: '', description: '', start_date: '', project_code: '' });
 
-    const openAdd = () => { 
-        setEditItem(null); 
-        setForm({ 
-            organization_id: orgs[0]?.id || '', name: '', location: '', description: '', start_date: '', end_date: '',
+    const openAdd = () => {
+        setEditItem(null);
+        setErrors({});
+        setForm({
+            organization_id: orgs[0]?.id || '', name: '', location: '', description: '', start_date: '',
             faber_poc_id: '',
             top_management_name: '', top_management_designation: '', top_management_mobile: '', top_management_email: '',
             client_poc_name: '', client_poc_designation: '', client_poc_mobile: '', client_poc_email: '',
+            logistics_poc_name: '', logistics_poc_designation: '', logistics_poc_mobile: '', logistics_poc_email: '',
+            logistics_arrangements: initialLogistics,
+            conf_data_sharing: false, conf_aae_communication: false,
+            special_instructions: '',
             schedule_type: 'month',
             consulting_team: [],
             period_count: 1,
             consulting_grid: [[]],
             projects: [getEmptyProject()]
-        }); 
-        setShowModal(true); 
+        });
+        setShowModal(true);
     };
 
-    const openEdit = (e, a) => { 
-        e.stopPropagation(); 
-        setEditItem(a); 
-        setForm({ 
-            organization_id: a.organization_id, name: a.name, location: a.location || '', description: a.description || '', start_date: a.start_date?.split('T')[0] || '', end_date: a.end_date?.split('T')[0] || '',
+    const openEdit = (e, a) => {
+        e.stopPropagation();
+        setEditItem(a);
+        setErrors({});
+        setForm({
+            organization_id: a.organization_id, name: a.name, location: a.location || '', description: a.description || '', start_date: a.start_date?.split('T')[0] || '',
             faber_poc_id: a.faber_poc_id || '',
             top_management_name: a.top_management_name || '', top_management_designation: a.top_management_designation || '', top_management_mobile: a.top_management_mobile || '', top_management_email: a.top_management_email || '',
             client_poc_name: a.client_poc_name || '', client_poc_designation: a.client_poc_designation || '', client_poc_mobile: a.client_poc_mobile || '', client_poc_email: a.client_poc_email || '',
+            logistics_poc_name: a.logistics_poc_name || '', logistics_poc_designation: a.logistics_poc_designation || '', logistics_poc_mobile: a.logistics_poc_mobile || '', logistics_poc_email: a.logistics_poc_email || '',
+            logistics_arrangements: a.logistics_arrangements || initialLogistics,
+            conf_data_sharing: a.conf_data_sharing || false, conf_aae_communication: a.conf_aae_communication || false,
+            special_instructions: a.special_instructions || '',
             schedule_type: a.schedule_type || 'month',
             consulting_team: [],
             period_count: 1,
             consulting_grid: [[]],
             projects: [] // Hide project form on edit
-        }); 
-        setShowModal(true); 
+        });
+        setShowModal(true);
+    };
+
+    const handleLogisticsArrangementChange = (key, field, value) => {
+        setForm({
+            ...form,
+            logistics_arrangements: {
+                ...form.logistics_arrangements,
+                [key]: {
+                    ...form.logistics_arrangements[key],
+                    [field]: value
+                }
+            }
+        });
     };
 
     const handleProjectChange = (index, field, value) => {
@@ -136,6 +173,56 @@ export default function AssignmentsPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        const newErrors = {};
+
+        if (!form.organization_id) newErrors.organization_id = 'This field is required';
+        if (!form.name || !form.name.trim()) newErrors.name = 'This field is required';
+        if (!form.faber_poc_id) newErrors.faber_poc_id = 'This field is required';
+
+        // Top Management Details
+        if (!form.top_management_name || !form.top_management_name.trim()) newErrors.top_management_name = 'This field is required';
+        if (!form.top_management_designation || !form.top_management_designation.trim()) newErrors.top_management_designation = 'This field is required';
+        if (!form.top_management_mobile || !form.top_management_mobile.trim()) newErrors.top_management_mobile = 'This field is required';
+        if (!form.top_management_email || !form.top_management_email.trim()) newErrors.top_management_email = 'This field is required';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.top_management_email)) newErrors.top_management_email = 'Invalid email address';
+
+        // Point of Contact - Client
+        if (!form.client_poc_name || !form.client_poc_name.trim()) newErrors.client_poc_name = 'This field is required';
+        if (!form.client_poc_designation || !form.client_poc_designation.trim()) newErrors.client_poc_designation = 'This field is required';
+        if (!form.client_poc_mobile || !form.client_poc_mobile.trim()) newErrors.client_poc_mobile = 'This field is required';
+        if (!form.client_poc_email || !form.client_poc_email.trim()) newErrors.client_poc_email = 'This field is required';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.client_poc_email)) newErrors.client_poc_email = 'Invalid email address';
+
+        if (!editItem && form.projects && form.projects.length > 0) {
+            form.projects.forEach((proj, idx) => {
+                if (!proj.name || !proj.name.trim()) newErrors[`project_name_${idx}`] = 'This field is required';
+                if (!proj.service_id) newErrors[`project_service_id_${idx}`] = 'This field is required';
+                if (!proj.start_date) newErrors[`project_start_date_${idx}`] = 'This field is required';
+            });
+        }
+
+        // Consulting Team
+        if (form.consulting_team.length === 0) {
+            newErrors.consulting_team = 'At least one team member must be selected';
+        }
+
+        const arr = Object.values(form.logistics_arrangements);
+        const needsClientPOC = arr.some(r => r.book_by === 'Client' || r.paid_by === 'Client');
+        if (needsClientPOC) {
+            if (!form.logistics_poc_name || !form.logistics_poc_name.trim()) newErrors.logistics_poc_name = 'This field is required';
+            if (!form.logistics_poc_designation || !form.logistics_poc_designation.trim()) newErrors.logistics_poc_designation = 'This field is required';
+            if (!form.logistics_poc_mobile || !form.logistics_poc_mobile.trim()) newErrors.logistics_poc_mobile = 'This field is required';
+            if (!form.logistics_poc_email || !form.logistics_poc_email.trim()) newErrors.logistics_poc_email = 'This field is required';
+            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.logistics_poc_email)) newErrors.logistics_poc_email = 'Invalid email address';
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+        setErrors({});
+
         try {
             // Flatten consulting days grid into API format
             const team_members = form.consulting_team.map(t => ({ user_id: t.user_id, title: t.title }));
@@ -152,7 +239,16 @@ export default function AssignmentsPage() {
                     }
                 });
             });
-            const payload = { ...form, team_members, consulting_days };
+            const payload = {
+                ...form,
+                start_date: form.start_date || null,
+                projects: (form.projects || []).map(p => ({
+                    ...p,
+                    start_date: p.start_date || null
+                })),
+                team_members,
+                consulting_days
+            };
 
             if (editItem) {
                 await api.put(`/assignments/${editItem.id}`, payload);
@@ -172,7 +268,7 @@ export default function AssignmentsPage() {
             // Check for dependent projects first to show explicitly in the prompt
             const pRes = await api.get(`/projects?assignment_id=${a.id}`);
             const childProjects = pRes.data;
-            
+
             let message = `Are you sure you want to delete assignment "${a.name}"?`;
             if (childProjects.length > 0) {
                 message += `\n\nThis will also delete the following ${childProjects.length} project(s):\n`;
@@ -189,10 +285,57 @@ export default function AssignmentsPage() {
         }
     };
 
-    const getStatusBadge = (s) => {
-        const m = { active: 'badge-success', on_hold: 'badge-warning', completed: 'badge-info', cancelled: 'badge-danger' };
-        return m[s] || 'badge-default';
+    
+
+    const getProgressColor = (pct) => {
+        if (pct >= 75) return 'green';
+        if (pct >= 40) return 'orange';
+        return 'purple';
     };
+
+    const statusPriority = {
+        not_started: 0,
+        active: 1,
+        completed: 2,
+    };
+
+    const statusFilters = [
+        { value: 'all', label: 'All' },
+        { value: 'not_started', label: 'Not Started' },
+        { value: 'active', label: 'Active' },
+        { value: 'completed', label: 'Completed' },
+    ];
+
+    const filteredAssignments = assignments
+        .filter((assignment) => {
+            if (statusFilter !== 'all' && assignment.status !== statusFilter) {
+                return false;
+            }
+
+            const query = searchTerm.trim().toLowerCase();
+            if (!query) return true;
+
+            const searchableText = [
+                assignment.name,
+                assignment.organization_name,
+                assignment.location,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return searchableText.includes(query);
+        })
+        .sort((left, right) => {
+            const leftPriority = statusPriority[left.status] ?? 99;
+            const rightPriority = statusPriority[right.status] ?? 99;
+
+            if (leftPriority !== rightPriority) {
+                return leftPriority - rightPriority;
+            }
+
+            return left.name.localeCompare(right.name);
+        });
 
     if (loading) return <div className="loading-spinner"><div className="spinner" /></div>;
 
@@ -203,13 +346,67 @@ export default function AssignmentsPage() {
                 { label: 'Assignments', path: '/assignments' }
             ]} />
             {!showModal ? (
+                <>
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px',
+                            flexWrap: 'wrap',
+                            marginBottom: '16px',
+                        }}
+                    >
+                        <input
+                            className="form-control"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Search assignments"
+                            style={{
+                                flex: '1 1 320px',
+                                minWidth: '220px',
+                                maxWidth: '100%',
+                                height: '40px',
+                                borderRadius: '999px',
+                                background: '#ffffff',
+                            }}
+                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            {statusFilters.map((filter) => {
+                                const isActive = statusFilter === filter.value;
+                                return (
+                                    <button
+                                        key={filter.value}
+                                        type="button"
+                                        onClick={() => setStatusFilter(filter.value)}
+                                        style={{
+                                            border: '1px solid',
+                                            borderColor: isActive ? 'var(--accent)' : 'var(--border)',
+                                            background: isActive ? 'var(--accent-light)' : 'var(--bg-secondary)',
+                                            color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                                            borderRadius: '999px',
+                                            padding: '0 14px',
+                                            height: '40px',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            transition: 'var(--transition)',
+                                        }}
+                                    >
+                                        {filter.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                
                 <div className="table-container">
                     <div className="table-header">
-                        <h2>All Assignments ({assignments.length})</h2>
+                        <h2>All Assignments ({filteredAssignments.length})</h2>
                         <button className="btn btn-primary btn-sm" onClick={openAdd}><HiOutlinePlus /> Add Assignment</button>
                     </div>
 
-                    {assignments.length > 0 ? (
+                    {filteredAssignments.length > 0 ? (
                         <table>
                             <thead>
                                 <tr>
@@ -218,17 +415,29 @@ export default function AssignmentsPage() {
                                     <th>Location</th>
                                     <th>Status</th>
                                     <th>Projects</th>
+                                    <th>Progress</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {assignments.map((a) => (
+                                {filteredAssignments.map((a) => (
                                     <tr key={a.id} onClick={() => navigate(`/assignments/${a.id}`, { state: { from: '/assignments' } })} style={{ cursor: 'pointer' }}>
                                         <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</td>
                                         <td>{a.organization_name}</td>
                                         <td>{a.location || '—'}</td>
-                                        <td><span className={`badge ${getStatusBadge(a.status)}`}>{a.status}</span></td>
+                                        <td><span className={`badge ${getWorkflowStatusBadge(a.status)}`}>{formatWorkflowStatus(a.status)}</span></td>
                                         <td><span className="badge badge-purple">{a.project_count}</span></td>
+                                        <td style={{ minWidth: '140px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div className="progress-bar" style={{ flex: 1 }}>
+                                                    <div
+                                                        className={`fill ${getProgressColor(parseFloat(a.overall_progress || 0))}`}
+                                                        style={{ width: `${a.overall_progress || 0}%` }}
+                                                    />
+                                                </div>
+                                                <span style={{ fontSize: '12px', fontWeight: 600, minWidth: '36px' }}>{parseFloat(a.overall_progress || 0).toFixed(0)}%</span>
+                                            </div>
+                                        </td>
                                         <td>
                                             <div style={{ display: 'flex', gap: '8px' }}>
                                                 <button className="btn-icon" onClick={(e) => openEdit(e, a)} title="Edit"><HiOutlinePencil /></button>
@@ -242,30 +451,35 @@ export default function AssignmentsPage() {
                     ) : (
                         <div className="empty-state">
                             <div className="icon"><HiOutlineCollection /></div>
-                            <h3>No assignments yet</h3>
-                            <p>Add an assignment (branch) under an organization to get started.</p>
+                            <h3>No assignments found</h3>
+                            <p>Try adjusting the search or status filter.</p>
                         </div>
                     )}
                 </div>
+                </>
             ) : (
-                <div className="form-container fade-in" style={{ background: 'var(--bg-primary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)', maxWidth: 'none', width: '100%' }}>
+                <div className="form-container-full fade-in" style={{ background: 'var(--bg-primary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)', maxWidth: 'none', width: '100%' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
                         <h2 style={{ fontSize: '20px', fontWeight: '600', color: 'var(--text-primary)' }}>{editItem ? 'Edit Assignment' : 'Add Assignment'}</h2>
-                        <button className="btn btn-secondary" onClick={() => setShowModal(false)}><HiOutlineX /> Cancel</button>
+                        <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}><HiOutlineX /> Cancel</button>
                     </div>
                     <form onSubmit={handleSubmit}>
                         <div>
                             {/* Top Layout */}
+                            <div className="project-form-card">
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Assignment Overview</h3>
                                 <div className="form-group">
                                     <label>1. Client Name *</label>
-                                    <select className="form-control" value={form.organization_id} onChange={(e) => setForm({ ...form, organization_id: e.target.value })} required>
+                                    <select className="form-control" value={form.organization_id} onChange={(e) => setForm({ ...form, organization_id: e.target.value })}>
                                         <option value="">Select Client</option>
                                         {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                                     </select>
+                                    {errors.organization_id && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.organization_id}</span>}
                                 </div>
                                 <div className="form-group">
                                     <label>Assignment Name *</label>
-                                    <input className="form-control" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="e.g. TATA-Gujarat" />
+                                    <input className="form-control" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. TATA-Gujarat" />
+                                    {errors.name && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.name}</span>}
                                 </div>
 
                                 <div className="form-group" style={{ marginBottom: '20px' }}>
@@ -274,12 +488,14 @@ export default function AssignmentsPage() {
                                 </div>
 
                                 <div className="form-group" style={{ marginBottom: '32px' }}>
-                                    <label>3. Point of Contact - Faber Infinite</label>
+                                    <label>3. Point of Contact - Faber Infinite *</label>
                                     <select className="form-control" value={form.faber_poc_id} onChange={(e) => setForm({ ...form, faber_poc_id: e.target.value })}>
                                         <option value="">Select Faber Contact</option>
                                         {faberUsers.map(u => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
                                     </select>
+                                    {errors.faber_poc_id && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.faber_poc_id}</span>}
                                 </div>
+                            </div>
 
                                 {/* Section 3: Top Management Details */}
                                 <div style={{ marginBottom: '32px' }}>
@@ -287,22 +503,26 @@ export default function AssignmentsPage() {
                                         <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Top Management Details</h3>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <label>Name</label>
+                                                <label>Name *</label>
                                                 <input className="form-control" value={form.top_management_name} onChange={(e) => setForm({ ...form, top_management_name: e.target.value })} placeholder="Name" />
+                                                {errors.top_management_name && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.top_management_name}</span>}
                                             </div>
                                             <div className="form-group">
-                                                <label>Designation</label>
+                                                <label>Designation *</label>
                                                 <input className="form-control" value={form.top_management_designation} onChange={(e) => setForm({ ...form, top_management_designation: e.target.value })} placeholder="Designation" />
+                                                {errors.top_management_designation && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.top_management_designation}</span>}
                                             </div>
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <label>Mobile/ Board Line No.</label>
+                                                <label>Mobile/ Board Line No. *</label>
                                                 <input className="form-control" value={form.top_management_mobile} onChange={(e) => setForm({ ...form, top_management_mobile: e.target.value })} placeholder="Phone Number" />
+                                                {errors.top_management_mobile && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.top_management_mobile}</span>}
                                             </div>
                                             <div className="form-group">
-                                                <label>E-mail ID</label>
+                                                <label>E-mail ID *</label>
                                                 <input type="email" className="form-control" value={form.top_management_email} onChange={(e) => setForm({ ...form, top_management_email: e.target.value })} placeholder="Email Address" />
+                                                {errors.top_management_email && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.top_management_email}</span>}
                                             </div>
                                         </div>
                                     </div>
@@ -314,22 +534,26 @@ export default function AssignmentsPage() {
                                         <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Point of Contact - Client</h3>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <label>Name</label>
+                                                <label>Name *</label>
                                                 <input className="form-control" value={form.client_poc_name} onChange={(e) => setForm({ ...form, client_poc_name: e.target.value })} placeholder="Name" />
+                                                {errors.client_poc_name && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.client_poc_name}</span>}
                                             </div>
                                             <div className="form-group">
-                                                <label>Designation</label>
+                                                <label>Designation *</label>
                                                 <input className="form-control" value={form.client_poc_designation} onChange={(e) => setForm({ ...form, client_poc_designation: e.target.value })} placeholder="Designation" />
+                                                {errors.client_poc_designation && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.client_poc_designation}</span>}
                                             </div>
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <label>Mobile/ Board Line No.</label>
+                                                <label>Mobile/ Board Line No. *</label>
                                                 <input className="form-control" value={form.client_poc_mobile} onChange={(e) => setForm({ ...form, client_poc_mobile: e.target.value })} placeholder="Phone Number" />
+                                                {errors.client_poc_mobile && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.client_poc_mobile}</span>}
                                             </div>
                                             <div className="form-group">
-                                                <label>E-mail ID</label>
+                                                <label>E-mail ID *</label>
                                                 <input type="email" className="form-control" value={form.client_poc_email} onChange={(e) => setForm({ ...form, client_poc_email: e.target.value })} placeholder="Email Address" />
+                                                {errors.client_poc_email && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.client_poc_email}</span>}
                                             </div>
                                         </div>
                                     </div>
@@ -363,7 +587,7 @@ export default function AssignmentsPage() {
 
                                         {/* Team Member Selector */}
                                         <div className="form-group" style={{ marginBottom: '16px' }}>
-                                            <label>Select Team Members</label>
+                                            <label>Select Team Members *</label>
                                             <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                                                 <select
                                                     className="form-control"
@@ -396,6 +620,7 @@ export default function AssignmentsPage() {
                                                     <HiOutlinePlus size={20} />
                                                 </button>
                                             </div>
+                                            {errors.consulting_team && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.consulting_team}</span>}
                                         </div>
 
                                         {/* Title inputs for selected members */}
@@ -488,8 +713,120 @@ export default function AssignmentsPage() {
                                     </div>
                                 </div>
 
-                                {!editItem && (
+                                <div className="project-form-card" style={{ marginBottom: '24px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Logistics Arrangement</h3>
+                                    <h4 style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '12px' }}>Point of Contact - Logistics</h4>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Name</label>
+                                            <input className="form-control" value={form.logistics_poc_name} onChange={(e) => setForm({ ...form, logistics_poc_name: e.target.value })} placeholder="POC Name" />
+                                            {errors.logistics_poc_name && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.logistics_poc_name}</span>}
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Designation</label>
+                                            <input className="form-control" value={form.logistics_poc_designation} onChange={(e) => setForm({ ...form, logistics_poc_designation: e.target.value })} placeholder="POC Designation" />
+                                            {errors.logistics_poc_designation && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.logistics_poc_designation}</span>}
+                                        </div>
+                                    </div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Mobile No.</label>
+                                            <input className="form-control" value={form.logistics_poc_mobile} onChange={(e) => setForm({ ...form, logistics_poc_mobile: e.target.value })} placeholder="POC Mobile" />
+                                            {errors.logistics_poc_mobile && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.logistics_poc_mobile}</span>}
+                                        </div>
+                                        <div className="form-group">
+                                            <label>E-mail ID</label>
+                                            <input type="email" className="form-control" value={form.logistics_poc_email} onChange={(e) => setForm({ ...form, logistics_poc_email: e.target.value })} placeholder="POC Email" />
+                                            {errors.logistics_poc_email && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors.logistics_poc_email}</span>}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ overflowX: 'auto', marginTop: '16px' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                            <thead>
+                                                <tr style={{ background: 'var(--bg-secondary)' }}>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '2px solid var(--border)', fontWeight: 600 }}>Booking Instructions</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '2px solid var(--border)', fontWeight: 600 }}>Paid by</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '2px solid var(--border)', fontWeight: 600 }}>Book by</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {['travel', 'lodging', 'boarding', 'local_conveyance'].map(key => (
+                                                    <tr key={key} style={{ borderBottom: '1px solid var(--border)' }}>
+                                                        <td style={{ padding: '8px 12px', fontWeight: 500 }}>{key.replace('_', ' ').charAt(0).toUpperCase() + key.replace('_', ' ').slice(1)}</td>
+                                                        <td style={{ padding: '8px 12px' }}>
+                                                            <select className="form-control" style={{ padding: '6px', fontSize: '13px' }} value={form.logistics_arrangements?.[key]?.paid_by || 'Client'} onChange={(e) => handleLogisticsArrangementChange(key, 'paid_by', e.target.value)}>
+                                                                <option value="Client">Client</option>
+                                                                <option value="Faber Infinite">Faber Infinite</option>
+                                                            </select>
+                                                        </td>
+                                                        <td style={{ padding: '8px 12px' }}>
+                                                            <select className="form-control" style={{ padding: '6px', fontSize: '13px' }} value={form.logistics_arrangements?.[key]?.book_by || 'Client'} onChange={(e) => handleLogisticsArrangementChange(key, 'book_by', e.target.value)}>
+                                                                <option value="Client">Client</option>
+                                                                <option value="Faber Infinite">Faber Infinite</option>
+                                                            </select>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div className="project-form-card" style={{ marginBottom: '24px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Significant Confirmation</h3>
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                                            1. Has the point of contact from Business Creation team of Faber Infinite, ensured with the client that all the formalities for sharing data with respective consultants (e.g NDA, service contract) are completed? Please get written note from the client if possible.
+                                        </p>
+                                        <div style={{ display: 'flex', gap: '20px' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                                <input type="radio" checked={form.conf_data_sharing === true} onChange={() => setForm({ ...form, conf_data_sharing: true })} /> Yes
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                                <input type="radio" checked={form.conf_data_sharing === false} onChange={() => setForm({ ...form, conf_data_sharing: false })} /> No
+                                            </label>
+                                        </div>
+                                    </div>
                                     <div>
+                                        <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                                            2. Has the point of contact from Business Creation team of Faber Infinite, communicated to client authority to share formal communication with all the involved shareholders about Alignment and Analysis Exercise (AAE)?
+                                        </p>
+                                        <div style={{ display: 'flex', gap: '20px' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                                <input type="radio" checked={form.conf_aae_communication === true} onChange={() => setForm({ ...form, conf_aae_communication: true })} /> Yes
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                                <input type="radio" checked={form.conf_aae_communication === false} onChange={() => setForm({ ...form, conf_aae_communication: false })} /> No
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="project-form-card" style={{ marginBottom: '24px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Points to Consider</h3>
+                                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                                        <li>-In the case of Implementation, KPI sheet approved by the client, should go along with Client Announcement Form as an Annexure.</li>
+                                        <li>-After releasing Client Announcement form, there should be a formal communication of any specification, among Business Creation team member and Consulting team members, before the initiation of project.</li>
+                                        <li>-Kindly jot down the key points of client discussions and important elements, that would be helpful to consulting team in further process.</li>
+                                    </ul>
+                                </div>
+
+                                <div className="project-form-card" style={{ marginBottom: '24px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Special Instructions</h3>
+                                    <div className="form-group">
+                                        <textarea
+                                            className="form-control"
+                                            rows="4"
+                                            value={form.special_instructions}
+                                            onChange={(e) => setForm({ ...form, special_instructions: e.target.value })}
+                                            placeholder="Add any special instructions or notes here..."
+                                        />
+                                    </div>
+                                </div>
+
+                                {!editItem && (
+                                    <div style={{ marginTop: '24px' }}>
                                         <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>Projects</h3>
                                         {form.projects.map((proj, idx) => (
                                             <div key={idx} className="project-form-card">
@@ -504,32 +841,34 @@ export default function AssignmentsPage() {
                                                 <div className="form-row">
                                                     <div className="form-group">
                                                         <label>Project Name *</label>
-                                                        <input className="form-control" value={proj.name} onChange={(e) => handleProjectChange(idx, 'name', e.target.value)} required placeholder="e.g. Implementation Phase" />
+                                                        <input className="form-control" value={proj.name} onChange={(e) => handleProjectChange(idx, 'name', e.target.value)} placeholder="e.g. Implementation Phase" />
+                                                        {errors[`project_name_${idx}`] && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors[`project_name_${idx}`]}</span>}
                                                     </div>
                                                     <div className="form-group">
                                                         <label>Service Type *</label>
-                                                        <select className="form-control" value={proj.service_id} onChange={(e) => handleProjectChange(idx, 'service_id', e.target.value)} required>
+                                                        <select className="form-control" value={proj.service_id} onChange={(e) => handleProjectChange(idx, 'service_id', e.target.value)}>
                                                             <option value="">Select Service</option>
                                                             {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                                                         </select>
+                                                        {errors[`project_service_id_${idx}`] && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors[`project_service_id_${idx}`]}</span>}
                                                     </div>
                                                 </div>
                                                 <div className="form-group" style={{ marginBottom: '16px' }}>
                                                     <label>Key Deliverables and Scope of Work</label>
-                                                    <textarea 
-                                                        className="form-control" 
-                                                        rows="2" 
-                                                        value={proj.description || ''} 
-                                                        onChange={(e) => handleProjectChange(idx, 'description', e.target.value)} 
-                                                        onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-                                                        style={{ resize: 'vertical', overflow: 'hidden' }}
-                                                        placeholder="Enter deliverables and scope..." 
+                                                    <textarea
+                                                        className="form-control"
+                                                        rows="2"
+                                                        value={proj.description || ''}
+                                                        onChange={(e) => handleProjectChange(idx, 'description', e.target.value)}
+                                                        style={{ resize: 'vertical' }}
+                                                        placeholder="Enter deliverables and scope..."
                                                     />
                                                 </div>
                                                 <div className="form-row">
                                                     <div className="form-group">
-                                                        <label>Tentative Flagoff Date</label>
+                                                        <label>Tentative Flagoff Date *</label>
                                                         <input type="date" className="form-control" value={proj.start_date || ''} onChange={(e) => handleProjectChange(idx, 'start_date', e.target.value)} />
+                                                        {errors[`project_start_date_${idx}`] && <span className="error-text" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '6px', display: 'block' }}>{errors[`project_start_date_${idx}`]}</span>}
                                                     </div>
                                                 </div>
                                             </div>
@@ -540,13 +879,19 @@ export default function AssignmentsPage() {
                                     </div>
                                 )}
                             </div>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
-                            <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                            <button type="submit" className="btn btn-primary">{editItem ? 'Save Changes' : 'Add Assignment'}</button>
-                        </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
+                                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+                                <button type="submit" className="btn btn-primary">{editItem ? 'Save Changes' : 'Add Assignment'}</button>
+                            </div>
                     </form>
                 </div>
             )}
         </div>
     );
 }
+
+
+
+
+
+
