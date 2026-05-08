@@ -4,8 +4,11 @@ import api from '../api';
 import { HiOutlinePlus, HiOutlinePencil, HiOutlineX, HiOutlineCollection, HiOutlineTrash } from 'react-icons/hi';
 import Breadcrumb from '../components/Breadcrumb';
 import { formatWorkflowStatus, getWorkflowStatusBadge } from '../utils/workflowStatus';
+import { useAuth } from '../context/AuthContext';
 
 export default function AssignmentsPage() {
+    const { user } = useAuth();
+    const isClient = user?.role_name === 'Client';
     const initialLogistics = {
         travel: { book_by: 'Client', paid_by: 'Client' },
         lodging: { book_by: 'Client', paid_by: 'Client' },
@@ -403,7 +406,7 @@ export default function AssignmentsPage() {
                 <div className="table-container">
                     <div className="table-header">
                         <h2>All Assignments ({filteredAssignments.length})</h2>
-                        <button className="btn btn-primary btn-sm" onClick={openAdd}><HiOutlinePlus /> Add Assignment</button>
+                        {!isClient && <button className="btn btn-primary btn-sm" onClick={openAdd}><HiOutlinePlus /> Add Assignment</button>}
                     </div>
 
                     {filteredAssignments.length > 0 ? (
@@ -416,7 +419,7 @@ export default function AssignmentsPage() {
                                     <th>Status</th>
                                     <th>Projects</th>
                                     <th>Progress</th>
-                                    <th>Actions</th>
+                                    {!isClient && <th>Actions</th>}
                                 </tr>
                             </thead>
                             <tbody>
@@ -438,12 +441,14 @@ export default function AssignmentsPage() {
                                                 <span style={{ fontSize: '12px', fontWeight: 600, minWidth: '36px' }}>{parseFloat(a.overall_progress || 0).toFixed(0)}%</span>
                                             </div>
                                         </td>
-                                        <td>
-                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                <button className="btn-icon" onClick={(e) => openEdit(e, a)} title="Edit"><HiOutlinePencil /></button>
-                                                <button className="btn-icon" onClick={(e) => handleDelete(e, a)} title="Delete" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
-                                            </div>
-                                        </td>
+                                        {!isClient && (
+                                            <td>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button className="btn-icon" onClick={(e) => openEdit(e, a)} title="Edit"><HiOutlinePencil /></button>
+                                                    <button className="btn-icon" onClick={(e) => handleDelete(e, a)} title="Delete" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
+                                                </div>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
@@ -451,7 +456,7 @@ export default function AssignmentsPage() {
                     ) : (
                         <div className="empty-state">
                             <div className="icon"><HiOutlineCollection /></div>
-                            <h3>No assignments found</h3>
+                            <h3>{isClient ? "No projects assigned." : "No assignments found"}</h3>
                             <p>Try adjusting the search or status filter.</p>
                         </div>
                     )}
@@ -593,6 +598,18 @@ export default function AssignmentsPage() {
                                                     className="form-control"
                                                     value={selectedTeamMemberId}
                                                     onChange={(e) => setSelectedTeamMemberId(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            if (selectedTeamMemberId) {
+                                                                const exists = form.consulting_team.some(t => String(t.user_id) === String(selectedTeamMemberId));
+                                                                if (!exists) {
+                                                                    handleToggleTeamMember(parseInt(selectedTeamMemberId, 10));
+                                                                }
+                                                                setSelectedTeamMemberId('');
+                                                            }
+                                                        }
+                                                    }}
                                                 >
                                                     <option value="">Select a member...</option>
                                                     {faberUsers

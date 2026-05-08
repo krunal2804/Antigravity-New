@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import api from '../api';
 
 export default function LoginPage() {
     const { login } = useAuth();
@@ -8,104 +9,225 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
-    const [isRegister, setIsRegister] = useState(false);
-    const [firstName, setFirstName] = useState('');
-    const [lastName, setLastName] = useState('');
-    const { register } = useAuth();
+
+    const [mode, setMode] = useState('login'); // login | request | verify | reset
+    const [resetEmail, setResetEmail] = useState('');
+    const [resetCode, setResetCode] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
         setLoading(true);
+        setError('');
+        setSuccess('');
 
         try {
-            if (isRegister) {
-                await register({ first_name: firstName, last_name: lastName, email, password, role_id: 1 });
-            } else {
-                await login(email, password);
-            }
+            await login(email, password);
             navigate('/');
         } catch (err) {
-            setError(err.response?.data?.error || 'Something went wrong. Please try again.');
+            const errorMsg = err.response?.data?.error || 'Something went wrong. Please try again.';
+            setError(errorMsg);
+            if (errorMsg === 'Incorrect password') setPassword('');
         } finally {
             setLoading(false);
         }
     };
 
+    const handleResetRequest = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        setSuccess('');
+        try {
+            await api.post('/auth/password-reset/request', { email: resetEmail });
+            setSuccess('Verification code sent to your email.');
+            setMode('verify');
+        } catch (err) {
+            setError(err.response?.data?.error || 'Failed to send verification code.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResetVerify = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        setSuccess('');
+        try {
+            await api.post('/auth/password-reset/verify', { email: resetEmail, code: resetCode });
+            setSuccess('Code verified. Set your new password.');
+            setMode('reset');
+        } catch (err) {
+            setError(err.response?.data?.error || 'Failed to verify code.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResetConfirm = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        setSuccess('');
+
+        if (newPassword.length < 6) {
+            setError('New password must be at least 6 characters.');
+            setLoading(false);
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setError('Passwords do not match.');
+            setLoading(false);
+            return;
+        }
+
+        try {
+            await api.post('/auth/password-reset/confirm', {
+                email: resetEmail,
+                code: resetCode,
+                new_password: newPassword,
+            });
+            setSuccess('Password reset successful. Please sign in.');
+            setMode('login');
+            setEmail(resetEmail);
+            setPassword('');
+            setResetCode('');
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (err) {
+            setError(err.response?.data?.error || 'Failed to reset password.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const renderHeader = () => {
+        if (mode === 'request') return { title: 'Forgot Password', subtitle: 'Enter your email to receive a 6-digit code.' };
+        if (mode === 'verify') return { title: 'Verify Code', subtitle: 'Enter the 6-digit code sent to your email.' };
+        if (mode === 'reset') return { title: 'Set New Password', subtitle: 'Choose a strong new password.' };
+        return { title: 'Welcome back', subtitle: 'Please enter your account details.' };
+    };
+
+    const header = renderHeader();
+
     return (
-        <div className="login-page">
-            <div className="login-card fade-in">
-                <div className="login-brand">
-                    <div className="logo">PG</div>
-                    <h1>GovernX</h1>
-                    <p>Project Governance Platform</p>
+        <div className="login-page fade-in">
+            <div className="login-side-panel">
+                <div className="brand-content">
+                    <div className="logo-wrap">
+                        <img
+                            src="/logo.png"
+                            alt="GovernX Logo"
+                            style={{ width: '48px', height: '48px', objectFit: 'contain' }}
+                        />
+                        <h2>GovernX</h2>
+                    </div>
+                    <h1>Elevate your Project Governance</h1>
+                    <p>
+                        A unified platform designed for precision, transparency, and seamless execution.
+                        Track progress, manage risks, and deliver excellence with ease.
+                    </p>
                 </div>
+            </div>
 
-                {error && <div className="login-error">{error}</div>}
+            <div className="login-form-panel">
+                <div className="login-form-container">
+                    <div className="login-form-header">
+                        <h2>{header.title}</h2>
+                        <p>{header.subtitle}</p>
+                    </div>
 
-                <form onSubmit={handleSubmit}>
-                    {isRegister && (
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label>First Name</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    placeholder="John"
-                                    value={firstName}
-                                    onChange={(e) => setFirstName(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Last Name</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    placeholder="Doe"
-                                    value={lastName}
-                                    onChange={(e) => setLastName(e.target.value)}
-                                    required
-                                />
-                            </div>
+                    {error && <div className="login-error">{error}</div>}
+                    {success && (
+                        <div style={{ background: 'var(--success-light)', color: 'var(--success)', padding: '12px 16px', borderRadius: 'var(--radius-md)', fontSize: '13px', marginBottom: '24px', border: '1px solid rgba(16, 185, 129, 0.1)', fontWeight: 600 }}>
+                            {success}
                         </div>
                     )}
 
-                    <div className="form-group">
-                        <label>Email Address</label>
-                        <input
-                            type="email"
-                            className="form-control"
-                            placeholder="you@company.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                        />
-                    </div>
+                    {mode === 'login' && (
+                        <form onSubmit={handleSubmit}>
+                            <div className="form-group">
+                                <label>Email Address</label>
+                                <input type="email" className="form-control" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                            </div>
 
-                    <div className="form-group">
-                        <label>Password</label>
-                        <input
-                            type="password"
-                            className="form-control"
-                            placeholder="••••••••"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                        />
-                    </div>
+                            <div className="form-group">
+                                <label>Password</label>
+                                <input type="password" className="form-control" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                                <div style={{ marginTop: '8px' }}>
+                                    <a
+                                        href="#"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            setError('');
+                                            setSuccess('');
+                                            setResetEmail(email || '');
+                                            setMode('request');
+                                        }}
+                                        style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent)' }}
+                                    >
+                                        Forgot Password?
+                                    </a>
+                                </div>
+                            </div>
 
-                    <button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading ? 'Please wait...' : isRegister ? 'Create Account' : 'Sign In'}
-                    </button>
-                </form>
+                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                                {loading ? 'Processing...' : 'Sign In'}
+                            </button>
+                        </form>
+                    )}
 
-                <div className="login-footer">
-                    {isRegister ? (
-                        <>Already have an account? <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(false); }}>Sign In</a></>
-                    ) : (
-                        <>Don't have an account? <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(true); }}>Register</a></>
+                    {mode === 'request' && (
+                        <form onSubmit={handleResetRequest}>
+                            <div className="form-group">
+                                <label>Email Address</label>
+                                <input type="email" className="form-control" placeholder="you@company.com" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} required />
+                            </div>
+                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                                {loading ? 'Sending...' : 'Send Code'}
+                            </button>
+                            <div className="login-footer">
+                                <a href="#" onClick={(e) => { e.preventDefault(); setMode('login'); setError(''); setSuccess(''); }}>Back to Sign In</a>
+                            </div>
+                        </form>
+                    )}
+
+                    {mode === 'verify' && (
+                        <form onSubmit={handleResetVerify}>
+                            <div className="form-group">
+                                <label>6-Digit Verification Code</label>
+                                <input type="text" inputMode="numeric" maxLength={6} className="form-control" placeholder="123456" value={resetCode} onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))} required />
+                            </div>
+                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                                {loading ? 'Verifying...' : 'Verify Code'}
+                            </button>
+                            <div className="login-footer">
+                                <a href="#" onClick={(e) => { e.preventDefault(); setMode('request'); setError(''); setSuccess(''); }}>Resend / Change Email</a>
+                            </div>
+                        </form>
+                    )}
+
+                    {mode === 'reset' && (
+                        <form onSubmit={handleResetConfirm}>
+                            <div className="form-group">
+                                <label>New Password</label>
+                                <input type="password" className="form-control" placeholder="********" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+                            </div>
+                            <div className="form-group">
+                                <label>Confirm New Password</label>
+                                <input type="password" className="form-control" placeholder="********" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+                            </div>
+                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                                {loading ? 'Updating...' : 'Reset Password'}
+                            </button>
+                            <div className="login-footer">
+                                <a href="#" onClick={(e) => { e.preventDefault(); setMode('verify'); setError(''); setSuccess(''); }}>Back to Code Verification</a>
+                            </div>
+                        </form>
                     )}
                 </div>
             </div>

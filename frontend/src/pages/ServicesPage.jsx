@@ -3,7 +3,7 @@ import api from '../api';
 import { 
     HiOutlinePlus, HiOutlineTrash, HiOutlineCollection, 
     HiOutlineDocumentAdd, HiOutlineX, HiOutlinePaperClip, HiOutlinePencil,
-    HiOutlineDocumentText, HiOutlineArrowLeft, HiOutlineExternalLink
+    HiOutlineDocumentText, HiOutlineArrowLeft, HiOutlineExternalLink, HiOutlineUpload, HiOutlineDownload
 } from 'react-icons/hi';
 
 function toRoman(num) {
@@ -26,6 +26,12 @@ export default function ServicesPage() {
     const [docs, setDocs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showDocumentManager, setShowDocumentManager] = useState(false);
+    const [bulkModal, setBulkModal] = useState(false);
+    const [bulkStep, setBulkStep] = useState(1);
+    const [bulkFile, setBulkFile] = useState(null);
+    const [bulkRows, setBulkRows] = useState([]);
+    const [bulkLoading, setBulkLoading] = useState(false);
+    const [bulkError, setBulkError] = useState('');
 
     const fetchData = async () => {
         setLoading(true);
@@ -85,6 +91,134 @@ export default function ServicesPage() {
     };
 
     const closeModal = () => setModalConfig(null);
+
+    const openBulkModal = () => {
+        if (!selectedServiceId) return;
+        setBulkModal(true);
+        setBulkStep(1);
+        setBulkFile(null);
+        setBulkRows([]);
+        setBulkError('');
+    };
+
+    const handleDownloadBulkSample = async () => {
+        try {
+            const res = await api.get('/services/bulk/upload-steps/sample-excel', { responseType: 'blob' });
+            const url = window.URL.createObjectURL(
+                new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+            );
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'sample_service_steps.xlsx');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            setBulkError(err.response?.data?.error || 'Failed to download sample.');
+        }
+    };
+
+    const handleValidateBulk = async () => {
+        if (!bulkFile || !selectedServiceId) return;
+        setBulkLoading(true);
+        setBulkError('');
+        try {
+            const formData = new FormData();
+            formData.append('file', bulkFile);
+            const res = await api.post(`/services/${selectedServiceId}/upload-steps/validate`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            setBulkRows(res.data.rows || []);
+            setBulkStep(2);
+        } catch (err) {
+            setBulkError(err.response?.data?.error || 'Failed to validate upload file.');
+        } finally {
+            setBulkLoading(false);
+        }
+    };
+
+    const validateBulkRowsLocally = (rows) => {
+        let currentStepOrder = null;
+        let currentStepName = '';
+
+        return rows.map((row) => {
+            const errors = [];
+            const stepOrderRaw = String(row.step_order || '').trim();
+            const stepNameRaw = String(row.step_name || '').trim();
+            const taskOrder = Number.parseInt(String(row.task_order || '').trim(), 10);
+            const taskName = String(row.task_name || '').trim();
+            const durationRaw = String(row.default_duration_days || '').trim();
+            const docName = String(row.reference_doc_name || '').trim();
+            const docLink = String(row.reference_doc_link || '').trim();
+
+            let stepOrder = currentStepOrder;
+            let stepName = currentStepName;
+            const startsNewStep = !!stepOrderRaw || !!stepNameRaw;
+
+            if (startsNewStep) {
+                const parsedStepOrder = Number.parseInt(stepOrderRaw, 10);
+                if (!stepOrderRaw || Number.isNaN(parsedStepOrder) || parsedStepOrder < 1) {
+                    errors.push('Step Order must be provided (number >= 1) when starting a new step');
+                } else {
+                    stepOrder = parsedStepOrder;
+                    currentStepOrder = parsedStepOrder;
+                }
+                stepName = stepNameRaw;
+                currentStepName = stepNameRaw;
+            } else if (!currentStepOrder) {
+                errors.push('Step Order is required on the first row of each step block');
+            }
+
+            if (!taskOrder || Number.isNaN(taskOrder) || taskOrder < 1) errors.push('Task Order must be a number >= 1');
+            if (!taskName) errors.push('Task Name is required');
+
+            if (durationRaw) {
+                const parsed = Number.parseInt(durationRaw, 10);
+                if (Number.isNaN(parsed) || parsed < 0) errors.push('Default Duration Days must be a number >= 0');
+            }
+
+            if ((docName && !docLink) || (!docName && docLink)) {
+                errors.push('Reference Doc Name and Link must both be filled together');
+            }
+            if (docLink && !(docLink.startsWith('http://') || docLink.startsWith('https://'))) {
+                errors.push('Reference Doc Link must start with http:// or https://');
+            }
+
+            return { ...row, step_order: stepOrder || '', step_name: stepName || '', errors };
+        });
+    };
+
+    const handleBulkRowChange = (index, field, value) => {
+        const next = bulkRows.map((row, i) => (i === index ? { ...row, [field]: value } : row));
+        setBulkRows(validateBulkRowsLocally(next));
+    };
+
+    const handleBulkConfirm = async () => {
+        if (!selectedServiceId) return;
+        setBulkLoading(true);
+        setBulkError('');
+        try {
+            const rows = validateBulkRowsLocally(bulkRows);
+            setBulkRows(rows);
+            if (rows.some((r) => (r.errors || []).length > 0)) {
+                setBulkError('Please fix row errors before applying.');
+                setBulkLoading(false);
+                return;
+            }
+
+            await api.post(`/services/${selectedServiceId}/upload-steps/confirm`, { rows });
+            await loadServiceDetails(selectedServiceId);
+            setBulkModal(false);
+            setBulkStep(1);
+            setBulkRows([]);
+            setBulkFile(null);
+        } catch (err) {
+            setBulkError(err.response?.data?.error || 'Failed to apply uploaded steps.');
+        } finally {
+            setBulkLoading(false);
+        }
+    };
 
     const checkProjectsAndConfirm = async (actionDesc) => {
         if (!selectedServiceId) return true;
@@ -230,15 +364,18 @@ export default function ServicesPage() {
                 {serviceDetails ? (
                     <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
                         <div style={{ marginBottom: '32px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                                <h1 style={{ fontSize: '24px', fontWeight: 800, margin: 0, flex: 1, paddingRight: '24px' }}>{serviceDetails.name}</h1>
-                                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                                    <h1 style={{ fontSize: '24px', fontWeight: 800, margin: 0, flex: 1, paddingRight: '24px' }}>{serviceDetails.name}</h1>
+                                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                                     <button className="btn btn-secondary btn-sm" onClick={() => openModal('service', null, serviceDetails)}>
                                         <HiOutlinePencil /> Edit Service
                                     </button>
                                     <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleDelete('service', serviceDetails.id)}><HiOutlineTrash /> Delete Service</button>
                                     <button className="btn btn-primary btn-sm" onClick={() => openModal('step', serviceDetails.id)}>
                                         <HiOutlinePlus /> Add Step
+                                    </button>
+                                    <button className="btn btn-secondary btn-sm" onClick={openBulkModal}>
+                                        <HiOutlineUpload /> Upload Steps
                                     </button>
                                 </div>
                             </div>
@@ -419,9 +556,14 @@ export default function ServicesPage() {
                                                 {docs.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                             </select>
                                         </div>
-                                        <div style={{ textAlign: 'center', marginTop: '16px' }}>
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Don't see it here? </span>
-                                            <span style={{ color: 'var(--primary)', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }} onClick={() => openModal('doc_create')}>Upload a new one</span>
+                                        <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
+                                            <button
+                                                type="button"
+                                                className="btn btn-primary btn-sm"
+                                                onClick={() => openModal('doc_create')}
+                                            >
+                                                Upload New Document
+                                            </button>
                                         </div>
                                     </>
                                 )}
@@ -438,6 +580,96 @@ export default function ServicesPage() {
                                 <button type="submit" className="btn btn-primary">Save Changes</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {bulkModal && (
+                <div className="modal-overlay" onClick={() => setBulkModal(false)}>
+                    <div className="modal" style={{ maxWidth: '1500px', width: '96vw' }} onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Upload Steps (Bulk)</h2>
+                            <button className="btn-icon" onClick={() => setBulkModal(false)}><HiOutlineX /></button>
+                        </div>
+                        <div className="modal-body">
+                            {bulkError && <div className="login-error" style={{ marginBottom: '12px' }}>{bulkError}</div>}
+                            {bulkStep === 1 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                                        Upload a single-sheet Excel with columns:
+                                        {' '}Step Order, Step Name(optional), Task Order, Task Name, Default Duration Days(optional), Reference Doc Name(optional), Reference Doc Link(optional).
+                                        {' '}For each step block, fill Step Order/Step Name only on the first row and leave them blank on following rows.
+                                    </p>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <input
+                                            type="file"
+                                            accept=".xlsx,.xls"
+                                            onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
+                                        />
+                                        <button type="button" className="btn btn-secondary" onClick={handleDownloadBulkSample}>
+                                            <HiOutlineDownload /> Download Sample
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            {bulkStep === 2 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                                        Read-only preview of parsed Excel rows.
+                                    </div>
+                                    <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '10px', maxHeight: '58vh', overflowY: 'auto' }}>
+                                    <table style={{ minWidth: '1650px' }}>
+                                        <thead>
+                                            <tr>
+                                                <th>Step Order</th>
+                                                <th>Step Name(optional)</th>
+                                                <th>Task Order</th>
+                                                <th>Task Name</th>
+                                                <th>Default Duration Days(optional)</th>
+                                                <th>Reference Doc Name(optional)</th>
+                                                <th>Reference Doc Link(optional)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {bulkRows.map((row, index) => (
+                                                <tr key={row.id || index}>
+                                                    <td style={{ minWidth: '130px', whiteSpace: 'nowrap' }}>{row.step_order || '-'}</td>
+                                                    <td style={{ minWidth: '260px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{row.step_name || '-'}</td>
+                                                    <td style={{ minWidth: '130px', whiteSpace: 'nowrap' }}>{row.task_order || '-'}</td>
+                                                    <td style={{ minWidth: '320px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{row.task_name || '-'}</td>
+                                                    <td style={{ minWidth: '200px', whiteSpace: 'nowrap' }}>{row.default_duration_days === '' ? '-' : row.default_duration_days}</td>
+                                                    <td style={{ minWidth: '300px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{row.reference_doc_name || '-'}</td>
+                                                    <td style={{ minWidth: '420px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{row.reference_doc_link || '-'}</td>
+                                                </tr>
+                                            ))}
+                                            {bulkRows.map((row, idx) => (
+                                                (row.errors || []).length > 0 && (
+                                                    <tr key={`err-${row.id || idx}`}>
+                                                        <td colSpan={7} style={{ color: 'var(--danger)', fontSize: '12px' }}>
+                                                            Row {row.row_number || idx + 2}: {row.errors.join(' | ')}
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="modal-footer">
+                            <button type="button" className="btn btn-secondary" onClick={() => setBulkModal(false)} disabled={bulkLoading}>Cancel</button>
+                            {bulkStep === 1 && (
+                                <button type="button" className="btn btn-primary" onClick={handleValidateBulk} disabled={!bulkFile || bulkLoading}>
+                                    {bulkLoading ? 'Validating...' : 'Preview'}
+                                </button>
+                            )}
+                            {bulkStep === 2 && (
+                                <button type="button" className="btn btn-primary" onClick={handleBulkConfirm} disabled={bulkLoading || bulkRows.some((r) => (r.errors || []).length > 0)}>
+                                    {bulkLoading ? 'Applying...' : 'Replace Steps'}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

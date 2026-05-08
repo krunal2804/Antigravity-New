@@ -22,13 +22,13 @@ import { formatWorkflowStatus } from '../utils/workflowStatus';
 // Nav items — consulting roles no longer have /my-projects as a flat link;
 // they navigate via the accordion labels instead.
 const allNavItems = [
-    { path: '/', label: 'Dashboard', icon: HiOutlineViewGrid, roles: ['Director', 'Manager', 'Senior Consultant', 'Consultant'] },
+    { path: '/', label: 'Dashboard', icon: HiOutlineViewGrid, roles: ['Director', 'Manager', 'Senior Consultant', 'Consultant', 'Client'] },
     { path: '/services', label: 'Services Builder', icon: HiOutlineTemplate, roles: ['Director', 'Manager'] },
-    { path: '/clients', label: 'Clients', icon: HiOutlineOfficeBuilding, roles: ['Director', 'Manager'] },
-    { path: '/assignments', label: 'Assignments', icon: HiOutlineCollection, roles: ['Director', 'Manager'] },
-    { path: '/projects', label: 'Projects', icon: HiOutlineClipboardList, roles: ['Director', 'Manager'] },
-    { path: '/users', label: 'Users', icon: HiOutlineUsers, roles: ['Director', 'Manager'] },
-    { path: '/settings', label: 'Settings', icon: HiOutlineCog, roles: ['Director', 'Manager', 'Senior Consultant', 'Consultant'] },
+    { path: '/clients', label: 'Client Master', icon: HiOutlineOfficeBuilding, roles: ['Director', 'Manager'] },
+    { path: '/assignments', label: 'Assignments', icon: HiOutlineCollection, roles: ['Director', 'Manager', 'Client'] },
+    { path: '/projects', label: 'Projects', icon: HiOutlineClipboardList, roles: ['Director', 'Manager', 'Client'] },
+    { path: '/users', label: 'Team', icon: HiOutlineUsers, roles: ['Director', 'Manager'] },
+    { path: '/settings', label: 'Settings', icon: HiOutlineCog, roles: ['Director', 'Manager', 'Senior Consultant', 'Consultant', 'Client'] },
 ];
 
 const pageTitles = {
@@ -255,7 +255,6 @@ export default function Layout() {
                     <img src="/logo.png" alt="Logo" className="logo" style={{ width: '36px', height: '36px', background: 'transparent', color: 'transparent', flexShrink: 0, objectFit: 'contain', padding: 0, borderRadius: 0, boxShadow: 'none' }} />
                     <div>
                         <h2>GovernX</h2>
-                        <span>Project Governance</span>
                     </div>
                 </div>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api';
-import { HiOutlineClipboardList, HiOutlineCheckCircle } from 'react-icons/hi';
+import { HiOutlineClipboardList, HiOutlineCheckCircle, HiOutlineInformationCircle } from 'react-icons/hi';
 import Breadcrumb from '../components/Breadcrumb';
 import { formatWorkflowStatus, getWorkflowStatusBadge } from '../utils/workflowStatus';
 
@@ -80,14 +80,30 @@ export default function AssignmentDetailPage() {
         <div className="fade-in">
             <Breadcrumb items={getBreadcrumbItems()} />
 
-            <div style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '24px', fontWeight: 700 }}>{assignment.name}</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '6px' }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-                        {assignment.organization_name} • {assignment.location || 'No location'}
-                    </span>
-                    <span className={`badge ${getWorkflowStatusBadge(assignment.status)}`}>{formatWorkflowStatus(assignment.status)}</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                    <h2 style={{ fontSize: '24px', fontWeight: 700 }}>{assignment.name}</h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '6px' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+                            {assignment.organization_name} â€¢ {assignment.location || 'No location'}
+                        </span>
+                        <span className={`badge ${getWorkflowStatusBadge(assignment.status)}`}>{formatWorkflowStatus(assignment.status)}</span>
+                    </div>
                 </div>
+                <button
+                    onClick={() => navigate(`/assignments/${id}/info`, { state: { from: fromPath } })}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)',
+                        padding: '10px 18px', cursor: 'pointer', fontSize: '14px', fontWeight: 600,
+                        transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(37,99,235,0.2)',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                >
+                    <HiOutlineInformationCircle style={{ fontSize: '18px' }} />
+                    Assignment Info
+                </button>
             </div>
 
             <div className="card" style={{ marginBottom: '24px' }}>
@@ -166,7 +182,7 @@ export default function AssignmentDetailPage() {
                                         <div>
                                             <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>{p.name}</h3>
                                             <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                                                {p.service_name} • {totalTasks} task{totalTasks !== 1 ? 's' : ''}
+                                                {p.service_name} â€¢ {totalTasks} task{totalTasks !== 1 ? 's' : ''}
                                             </span>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>

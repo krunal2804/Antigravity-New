@@ -48,6 +48,10 @@ router.get('/', authenticate, async (req, res) => {
 
         if (organization_id) query = query.where('assignments.organization_id', organization_id);
 
+        if (req.user && req.user.role_name === 'Client' && req.user.organization_id) {
+            query = query.where('assignments.organization_id', req.user.organization_id);
+        }
+
         const assignments = await query.orderBy('assignments.name');
 
         const enriched = await Promise.all(
@@ -88,6 +92,10 @@ router.get('/:id', authenticate, async (req, res) => {
 
         if (!assignment) return res.status(404).json({ error: 'Assignment not found.' });
 
+        if (req.user.role_name === 'Client' && assignment.organization_id !== req.user.organization_id) {
+            return res.status(403).json({ error: 'Not authorized to view this assignment.' });
+        }
+
         const teamMember = await db('assignment_team_members')
             .where({ assignment_id: assignment.id, user_id: req.user.id })
             .first();
@@ -95,11 +103,32 @@ router.get('/:id', authenticate, async (req, res) => {
 
         const projects = await fetchProjectSummariesForAssignment(db, assignment.id);
 
+        // Fetch team members with user details
+        const teamMembers = await db('assignment_team_members')
+            .join('users', 'assignment_team_members.user_id', 'users.id')
+            .where({ 'assignment_team_members.assignment_id': assignment.id })
+            .select(
+                'assignment_team_members.id',
+                'assignment_team_members.user_id',
+                'assignment_team_members.title',
+                'users.first_name',
+                'users.last_name',
+                'users.email'
+            );
+
+        // Fetch consulting days
+        const consultingDays = await db('assignment_consulting_days')
+            .where({ assignment_id: assignment.id })
+            .select('*')
+            .orderBy('period_index');
+
         res.json({
             ...assignment,
             status: deriveAssignmentWorkflowStatus(projects.map((project) => project.status)),
             overall_progress: calculateAssignmentProgress(projects),
             projects,
+            team_members: teamMembers,
+            consulting_days: consultingDays,
         });
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch assignment.' });

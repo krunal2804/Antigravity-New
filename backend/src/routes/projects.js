@@ -26,6 +26,10 @@ router.get('/', authenticate, async (req, res) => {
         if (status) query = query.where('projects.status', status === 'active' ? 'in_progress' : status);
         if (service_id) query = query.where('projects.service_id', service_id);
 
+        if (req.user && req.user.role_name === 'Client' && req.user.organization_id) {
+            query = query.where('assignments.organization_id', req.user.organization_id);
+        }
+
         const projects = await query.orderBy('projects.created_at', 'desc');
 
         const enriched = await Promise.all(
@@ -76,6 +80,10 @@ router.get('/:id', authenticate, async (req, res) => {
             .first();
 
         if (!project) return res.status(404).json({ error: 'Project not found.' });
+
+        if (req.user.role_name === 'Client' && project.organization_id !== req.user.organization_id) {
+            return res.status(403).json({ error: 'Not authorized to view this project.' });
+        }
 
         const tasks = await db('project_tasks')
             .leftJoin('users', 'project_tasks.assigned_to', 'users.id')

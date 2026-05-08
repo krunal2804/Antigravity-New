@@ -2,8 +2,111 @@ const express = require('express');
 const db = require('../database/db');
 const { authenticate, authorize } = require('../middleware/auth');
 const { resequenceProjectsForService } = require('../utils/projectTaskOrder');
+const multer = require('multer');
+const XLSX = require('xlsx');
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
+
+const BULK_COLUMNS = {
+    STEP_ORDER: 'Step Order',
+    STEP_NAME: 'Step Name(optional)',
+    TASK_ORDER: 'Task Order',
+    TASK_NAME: 'Task Name',
+    DURATION: 'Default Duration Days(optional)',
+    DOC_NAME: 'Reference Doc Name(optional)',
+    DOC_LINK: 'Reference Doc Link(optional)',
+};
+
+function isValidHttpUrl(value) {
+    if (!value) return true;
+    try {
+        const parsed = new URL(value);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch (err) {
+        return false;
+    }
+}
+
+function normalizeServiceUploadRows(rows) {
+    const normalized = [];
+    let currentStepOrder = null;
+    let currentStepName = '';
+
+    rows.forEach((rawRow, index) => {
+        const rowNumber = index + 2;
+        const stepOrderRaw = String(rawRow[BULK_COLUMNS.STEP_ORDER] ?? '').trim();
+        const stepName = String(rawRow[BULK_COLUMNS.STEP_NAME] ?? '').trim();
+        const taskOrderRaw = String(rawRow[BULK_COLUMNS.TASK_ORDER] ?? '').trim();
+        const taskName = String(rawRow[BULK_COLUMNS.TASK_NAME] ?? '').trim();
+        const durationRaw = String(rawRow[BULK_COLUMNS.DURATION] ?? '').trim();
+        const docName = String(rawRow[BULK_COLUMNS.DOC_NAME] ?? '').trim();
+        const docLink = String(rawRow[BULK_COLUMNS.DOC_LINK] ?? '').trim();
+
+        const isCompletelyEmpty = !stepOrderRaw && !stepName && !taskOrderRaw && !taskName && !durationRaw && !docName && !docLink;
+        if (isCompletelyEmpty) return;
+
+        const errors = [];
+
+        let stepOrder = currentStepOrder;
+        let effectiveStepName = currentStepName;
+
+        const startsNewStep = !!stepOrderRaw || !!stepName;
+        if (startsNewStep) {
+            const parsedStepOrder = Number.parseInt(stepOrderRaw, 10);
+            if (!stepOrderRaw || Number.isNaN(parsedStepOrder) || parsedStepOrder < 1) {
+                errors.push('Step Order must be provided (number >= 1) when starting a new step');
+            } else {
+                stepOrder = parsedStepOrder;
+                currentStepOrder = parsedStepOrder;
+            }
+
+            effectiveStepName = stepName;
+            currentStepName = stepName;
+        } else if (!currentStepOrder) {
+            errors.push('Step Order is required on the first row of each step block');
+        }
+
+        const taskOrder = Number.parseInt(taskOrderRaw, 10);
+        if (!taskOrderRaw || Number.isNaN(taskOrder) || taskOrder < 1) {
+            errors.push('Task Order must be a number >= 1');
+        }
+
+        if (!taskName) {
+            errors.push('Task Name is required');
+        }
+
+        let defaultDurationDays = null;
+        if (durationRaw) {
+            defaultDurationDays = Number.parseInt(durationRaw, 10);
+            if (Number.isNaN(defaultDurationDays) || defaultDurationDays < 0) {
+                errors.push('Default Duration Days must be a number >= 0');
+            }
+        }
+
+        if ((docName && !docLink) || (!docName && docLink)) {
+            errors.push('Reference Doc Name and Link must both be filled together');
+        }
+        if (docLink && !isValidHttpUrl(docLink)) {
+            errors.push('Reference Doc Link must start with http:// or https://');
+        }
+
+        normalized.push({
+            id: Date.now() + index,
+            row_number: rowNumber,
+            step_order: stepOrder || '',
+            step_name: effectiveStepName || '',
+            task_order: Number.isNaN(taskOrder) ? '' : taskOrder,
+            task_name: taskName,
+            default_duration_days: defaultDurationDays === null ? '' : defaultDurationDays,
+            reference_doc_name: docName,
+            reference_doc_link: docLink,
+            errors,
+        });
+    });
+
+    return normalized;
+}
 
 // ==========================================
 // SERVICES CRUD
@@ -52,6 +155,195 @@ router.get('/:id', authenticate, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to fetch service details.' });
+    }
+});
+
+// GET /api/services/bulk/upload-steps/sample-excel
+router.get('/bulk/upload-steps/sample-excel', authenticate, (req, res) => {
+    const wb = XLSX.utils.book_new();
+    const data = [[
+        BULK_COLUMNS.STEP_ORDER,
+        BULK_COLUMNS.STEP_NAME,
+        BULK_COLUMNS.TASK_ORDER,
+        BULK_COLUMNS.TASK_NAME,
+        BULK_COLUMNS.DURATION,
+        BULK_COLUMNS.DOC_NAME,
+        BULK_COLUMNS.DOC_LINK,
+    ]];
+
+    const demoSteps = [
+        'Discovery & Scope',
+        'Current State Mapping',
+        'Gap Analysis',
+        'Future State Design',
+        'Implementation Planning',
+    ];
+
+    demoSteps.forEach((stepName, idx) => {
+        const stepOrder = idx + 1;
+        for (let taskOrder = 1; taskOrder <= 5; taskOrder += 1) {
+            const isStepStart = taskOrder === 1;
+            data.push([
+                isStepStart ? stepOrder : '',
+                isStepStart ? stepName : '',
+                taskOrder,
+                `Task ${taskOrder} for Step ${stepOrder}`,
+                taskOrder * 2,
+                taskOrder === 1 ? `${stepName} - Reference` : '',
+                taskOrder === 1 ? `https://example.com/step-${stepOrder}-reference` : '',
+            ]);
+        }
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [
+        { wch: 12 }, { wch: 28 }, { wch: 12 }, { wch: 32 }, { wch: 24 }, { wch: 28 }, { wch: 45 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, 'Service Steps');
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Disposition', 'attachment; filename="sample_service_steps.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+});
+
+
+// POST /api/services/:id/upload-steps/validate
+router.post('/:id/upload-steps/validate', authenticate, upload.single('file'), async (req, res) => {
+    try {
+        const service = await db('services').where({ id: req.params.id }).first();
+        if (!service) return res.status(404).json({ error: 'Service not found.' });
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
+
+        const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        const parsedRows = normalizeServiceUploadRows(rows);
+
+        if (parsedRows.length === 0) {
+            return res.status(400).json({ error: 'Excel has no usable rows. Please add data rows.' });
+        }
+
+        res.json({ rows: parsedRows });
+    } catch (err) {
+        console.error('Upload steps validate error:', err);
+        res.status(500).json({ error: `Failed to validate file: ${err.message}` });
+    }
+});
+
+// POST /api/services/:id/upload-steps/confirm
+router.post('/:id/upload-steps/confirm', authenticate, async (req, res) => {
+    try {
+        const serviceId = req.params.id;
+        const { rows } = req.body;
+        if (!Array.isArray(rows) || rows.length === 0) {
+            return res.status(400).json({ error: 'No rows provided.' });
+        }
+
+        const normalized = normalizeServiceUploadRows(rows.map((r) => ({
+            [BULK_COLUMNS.STEP_ORDER]: r.step_order,
+            [BULK_COLUMNS.STEP_NAME]: r.step_name,
+            [BULK_COLUMNS.TASK_ORDER]: r.task_order,
+            [BULK_COLUMNS.TASK_NAME]: r.task_name,
+            [BULK_COLUMNS.DURATION]: r.default_duration_days,
+            [BULK_COLUMNS.DOC_NAME]: r.reference_doc_name,
+            [BULK_COLUMNS.DOC_LINK]: r.reference_doc_link,
+        })));
+
+        if (normalized.length === 0) {
+            return res.status(400).json({ error: 'No usable rows after validation.' });
+        }
+
+        const invalidRows = normalized.filter((r) => r.errors.length > 0);
+        if (invalidRows.length > 0) {
+            return res.status(400).json({ error: 'Some rows are invalid. Please fix errors in preview first.', rows: normalized });
+        }
+
+        // Build step/task model. Step name can be blank for repeated rows.
+        const byStep = new Map();
+        normalized.forEach((row) => {
+            const key = row.step_order;
+            if (!byStep.has(key)) {
+                byStep.set(key, { step_order: row.step_order, step_name: row.step_name || '', tasks: [] });
+            } else if (!byStep.get(key).step_name && row.step_name) {
+                byStep.get(key).step_name = row.step_name;
+            }
+            byStep.get(key).tasks.push(row);
+        });
+
+        const orderedSteps = Array.from(byStep.values()).sort((a, b) => a.step_order - b.step_order);
+
+        await db.transaction(async (trx) => {
+            const existingStepIds = (await trx('service_steps').where({ service_id: serviceId }).select('id')).map((x) => x.id);
+            const existingTaskIds = existingStepIds.length > 0
+                ? (await trx('service_tasks').whereIn('service_step_id', existingStepIds).select('id')).map((x) => x.id)
+                : [];
+
+            if (existingTaskIds.length > 0) {
+                await trx('service_task_documents').whereIn('service_task_id', existingTaskIds).del();
+            }
+            if (existingStepIds.length > 0) {
+                await trx('service_steps').whereIn('id', existingStepIds).del();
+            }
+
+            for (let stepIdx = 0; stepIdx < orderedSteps.length; stepIdx += 1) {
+                const step = orderedSteps[stepIdx];
+                const [newStep] = await trx('service_steps')
+                    .insert({
+                        service_id: serviceId,
+                        name: step.step_name || null,
+                        description: null,
+                        sequence_order: stepIdx,
+                    })
+                    .returning('*');
+
+                const orderedTasks = [...step.tasks].sort((a, b) => a.task_order - b.task_order);
+                for (let taskIdx = 0; taskIdx < orderedTasks.length; taskIdx += 1) {
+                    const task = orderedTasks[taskIdx];
+                    const [newTask] = await trx('service_tasks')
+                        .insert({
+                            service_step_id: newStep.id,
+                            name: task.task_name,
+                            description: null,
+                            default_duration_days: task.default_duration_days === '' ? null : Number(task.default_duration_days),
+                            sequence_order: taskIdx,
+                            is_mandatory: true,
+                        })
+                        .returning('*');
+
+                    if (task.reference_doc_name && task.reference_doc_link) {
+                        let doc = await trx('reference_documents')
+                            .where({
+                                service_id: serviceId,
+                                name: task.reference_doc_name,
+                                file_url: task.reference_doc_link,
+                            })
+                            .first();
+
+                        if (!doc) {
+                            [doc] = await trx('reference_documents')
+                                .insert({
+                                    service_id: serviceId,
+                                    name: task.reference_doc_name,
+                                    file_url: task.reference_doc_link,
+                                    description: null,
+                                })
+                                .returning('*');
+                        }
+
+                        await trx('service_task_documents')
+                            .insert({ service_task_id: newTask.id, document_id: doc.id })
+                            .onConflict(['service_task_id', 'document_id'])
+                            .ignore();
+                    }
+                }
+            }
+        });
+
+        res.json({ message: 'Service steps replaced successfully.' });
+    } catch (err) {
+        console.error('Upload steps confirm error:', err);
+        res.status(500).json({ error: `Failed to apply upload: ${err.message}` });
     }
 });
 

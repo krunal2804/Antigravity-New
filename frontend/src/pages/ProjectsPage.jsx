@@ -4,8 +4,11 @@ import api from '../api';
 import { HiOutlinePlus, HiOutlineX, HiOutlineClipboardList, HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi';
 import Breadcrumb from '../components/Breadcrumb';
 import { formatWorkflowStatus, getWorkflowStatusBadge } from '../utils/workflowStatus';
+import { useAuth } from '../context/AuthContext';
 
 export default function ProjectsPage() {
+    const { user } = useAuth();
+    const isClient = user?.role_name === 'Client';
     const navigate = useNavigate();
     const [projects, setProjects] = useState([]);
     const [assignments, setAssignments] = useState([]);
@@ -195,7 +198,7 @@ export default function ProjectsPage() {
                                 <th>Status</th>
                                 <th>Progress</th>
                                 <th>Tasks</th>
-                                <th>Actions</th>
+                                {!isClient && <th>Actions</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -221,12 +224,14 @@ export default function ProjectsPage() {
                                             {p.task_overdue > 0 && <span style={{ color: 'var(--danger)', marginLeft: '4px' }}>({p.task_overdue} overdue)</span>}
                                         </span>
                                     </td>
-                                    <td>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button className="btn-icon" onClick={(e) => openEdit(e, p)} title="Edit Project"><HiOutlinePencil /></button>
-                                            <button className="btn-icon" onClick={(e) => handleDelete(e, p)} title="Delete Project" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
-                                        </div>
-                                    </td>
+                                    {!isClient && (
+                                        <td>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button className="btn-icon" onClick={(e) => openEdit(e, p)} title="Edit Project"><HiOutlinePencil /></button>
+                                                <button className="btn-icon" onClick={(e) => handleDelete(e, p)} title="Delete Project" style={{ color: 'var(--danger)' }}><HiOutlineTrash /></button>
+                                            </div>
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>
@@ -234,7 +239,7 @@ export default function ProjectsPage() {
                 ) : (
                     <div className="empty-state">
                         <div className="icon"><HiOutlineClipboardList /></div>
-                        <h3>No projects found</h3>
+                        <h3>{isClient ? "No projects assigned." : "No projects found"}</h3>
                         <p>Try adjusting the search or status filter.</p>
                     </div>
                 )}

@@ -119,8 +119,8 @@ export default function OrganizationsPage() {
                                         <input className="form-control" value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} placeholder="e.g. Manufacturing" />
                                     </div>
                                     <div className="form-group">
-                                        <label>Email</label>
-                                        <input className="form-control" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="contact@company.com" />
+                                        <label>Email *</label>
+                                        <input className="form-control" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required placeholder="contact@company.com" />
                                     </div>
                                 </div>
                                 <div className="form-row">

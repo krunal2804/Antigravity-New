@@ -89,12 +89,36 @@ router.post('/', authenticate, authorize('organizations', 'can_create'), async (
     try {
         const { name, industry, website, address, city, state, country, pincode, phone, email } = req.body;
         if (!name) return res.status(400).json({ error: 'Name is required.' });
+        if (!email) return res.status(400).json({ error: 'Email is required.' });
 
-        const [org] = await db('organizations')
-            .insert({ name, industry, website, address, city, state, country, pincode, phone, email })
-            .returning('*');
+        const result = await db.transaction(async (trx) => {
+            const [org] = await trx('organizations')
+                .insert({ name, industry, website, address, city, state, country, pincode, phone, email })
+                .returning('*');
 
-        res.status(201).json(org);
+            // Auto-provision a user account for the new client
+            const existingUser = await trx('users').where({ email }).first();
+            if (!existingUser) {
+                let clientRole = await trx('roles').where({ name: 'Client' }).first();
+                if (clientRole) {
+                    const bcrypt = require('bcryptjs');
+                    const password_hash = await bcrypt.hash('123456', 10);
+                    await trx('users').insert({
+                        first_name: name,
+                        last_name: 'POC',
+                        email: email,
+                        phone: phone || null,
+                        password_hash,
+                        role_id: clientRole.id,
+                        organization_id: org.id
+                    });
+                }
+            }
+
+            return org;
+        });
+
+        res.status(201).json(result);
     } catch (err) {
         console.error('Create org error:', err);
         res.status(500).json({ error: 'Failed to create organization.' });

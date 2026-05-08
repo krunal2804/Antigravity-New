@@ -6,6 +6,8 @@ export function getWorkflowStatusBadge(status) {
 
 export function formatWorkflowStatus(status) {
     if (status === 'completed') return 'Completed';
-    if (status === 'active' || status === 'in_progress') return 'Active';
+    if (status === 'skipped') return 'Skipped';
+    if (status === 'in_progress') return 'In Progress';
+    if (status === 'active') return 'Active';
     return 'Not Started';
 }

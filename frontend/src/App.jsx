@@ -7,6 +7,7 @@ import OrganizationsPage from './pages/OrganizationsPage';
 import ClientDetailPage from './pages/ClientDetailPage';
 import AssignmentsPage from './pages/AssignmentsPage';
 import AssignmentDetailPage from './pages/AssignmentDetailPage';
+import AssignmentInfoPage from './pages/AssignmentInfoPage';
 import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import UsersPage from './pages/UsersPage';
@@ -48,10 +49,11 @@ function AppRoutes() {
         <Route path="services" element={<RoleRoute roles={['Director', 'Manager']}><ServicesPage /></RoleRoute>} />
         <Route path="clients" element={<RoleRoute roles={['Director', 'Manager']}><OrganizationsPage /></RoleRoute>} />
         <Route path="clients/:id" element={<RoleRoute roles={['Director', 'Manager']}><ClientDetailPage /></RoleRoute>} />
-        <Route path="assignments" element={<RoleRoute roles={['Director', 'Manager']}><AssignmentsPage /></RoleRoute>} />
-        <Route path="assignments/:id" element={<RoleRoute roles={['Director', 'Manager', 'Senior Consultant', 'Consultant']}><AssignmentDetailPage /></RoleRoute>} />
-        <Route path="projects" element={<RoleRoute roles={['Director', 'Manager']}><ProjectsPage /></RoleRoute>} />
-        <Route path="projects/:id" element={<RoleRoute roles={['Director', 'Manager', 'Senior Consultant', 'Consultant']}><ProjectDetailPage /></RoleRoute>} />
+        <Route path="assignments" element={<RoleRoute roles={['Director', 'Manager', 'Client']}><AssignmentsPage /></RoleRoute>} />
+        <Route path="assignments/:id" element={<RoleRoute roles={['Director', 'Manager', 'Senior Consultant', 'Consultant', 'Client']}><AssignmentDetailPage /></RoleRoute>} />
+        <Route path="assignments/:id/info" element={<RoleRoute roles={['Director', 'Manager', 'Senior Consultant', 'Consultant', 'Client']}><AssignmentInfoPage /></RoleRoute>} />
+        <Route path="projects" element={<RoleRoute roles={['Director', 'Manager', 'Client']}><ProjectsPage /></RoleRoute>} />
+        <Route path="projects/:id" element={<RoleRoute roles={['Director', 'Manager', 'Senior Consultant', 'Consultant', 'Client']}><ProjectDetailPage /></RoleRoute>} />
         <Route path="users" element={<RoleRoute roles={['Director', 'Manager']}><UsersPage /></RoleRoute>} />
         <Route path="my-assignments" element={<RoleRoute roles={['Senior Consultant', 'Consultant']}><MyAssignmentsPage /></RoleRoute>} />
         <Route path="my-projects" element={<RoleRoute roles={['Senior Consultant', 'Consultant']}><MyProjectsPage /></RoleRoute>} />

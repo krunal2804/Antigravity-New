@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import Breadcrumb from '../components/Breadcrumb';
 import { formatWorkflowStatus, getWorkflowStatusBadge } from '../utils/workflowStatus';
@@ -16,7 +15,6 @@ import {
 export default function ProjectDetailPage() {
     const { id } = useParams();
     const location = useLocation();
-    const { user } = useAuth();
     const [project, setProject] = useState(null);
     const [loading, setLoading] = useState(true);
     const [skipModalTask, setSkipModalTask] = useState(null);
@@ -214,9 +212,7 @@ export default function ProjectDetailPage() {
                                     return 0;
                                 });
 
-                                const romanNumerals = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
-
-                                return stepNames.length > 0 ? stepNames.map((stepName, stepIndex) => (
+                                return stepNames.length > 0 ? stepNames.map((stepName) => (
                                     <div key={stepName} style={{ marginBottom: '24px' }}>
                                         <div style={{
                                             background: 'var(--bg-secondary)',
@@ -227,7 +223,7 @@ export default function ProjectDetailPage() {
                                             color: 'var(--text-primary)',
                                             marginBottom: '12px'
                                         }}>
-                                            {stepName === 'Other' ? stepName : `Step ${romanNumerals[stepIndex] || stepIndex} - ${stepName}`}
+                                            {stepName}
                                         </div>
                                         <div className="task-list">
                                             {groups[stepName].map((task) => {
@@ -258,35 +254,29 @@ export default function ProjectDetailPage() {
                                                                 </h4>
                                                                 <p>
                                                                     {task.due_date && `Due: ${new Date(task.due_date).toLocaleDateString()}`}
-                                                                    {task.assignee_first_name && `   ${task.assignee_first_name} ${task.assignee_last_name}`}
+                                                                    {task.assignee_first_name && ` • ${task.assignee_first_name} ${task.assignee_last_name}`}
                                                                 </p>
                                                                 {taskActionText && (
                                                                     <div className="task-action-meta">{taskActionText}</div>
                                                                 )}
                                                             </div>
-                                                            {user?.role_name === 'Client' ? (
-                                                                <span className={`badge ${getWorkflowStatusBadge(task.status)}`}>
-                                                                    {formatWorkflowStatus(task.status)}
-                                                                </span>
-                                                            ) : (
-                                                                <select
-                                                                    className="task-status-select"
-                                                                    value={task.status}
-                                                                    onChange={(e) => {
-                                                                        const nextStatus = e.target.value;
-                                                                        if (nextStatus === 'skipped') {
-                                                                            openSkipModal(task);
-                                                                            return;
-                                                                        }
-                                                                        updateTaskStatus(task.id, nextStatus);
-                                                                    }}
-                                                                    disabled={isLocked}
-                                                                >
-                                                                    {statusOptions.map((status) => (
-                                                                        <option key={status} value={status}>{formatWorkflowStatus(status)}</option>
-                                                                    ))}
-                                                                </select>
-                                                            )}
+                                                            <select
+                                                                className="task-status-select"
+                                                                value={task.status}
+                                                                onChange={(e) => {
+                                                                    const nextStatus = e.target.value;
+                                                                    if (nextStatus === 'skipped') {
+                                                                        openSkipModal(task);
+                                                                        return;
+                                                                    }
+                                                                    updateTaskStatus(task.id, nextStatus);
+                                                                }}
+                                                                disabled={isLocked}
+                                                            >
+                                                                {statusOptions.map((status) => (
+                                                                    <option key={status} value={status}>{formatWorkflowStatus(status)}</option>
+                                                                ))}
+                                                            </select>
                                                         </div>
 
                                                         {isLocked && (
@@ -302,7 +292,7 @@ export default function ProjectDetailPage() {
                                                             </div>
                                                         )}
 
-                                                        {user?.role_name !== 'Client' && task.documents?.length > 0 && (
+                                                        {task.documents?.length > 0 && (
                                                             <div style={{ marginLeft: 0, marginTop: '8px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                                                                 <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Standard for reference:</span>
                                                                 {task.documents.map((doc) => (
